@@ -4,25 +4,12 @@ import java.util.Scanner;
 public class Calculator {
   public static void main(String[] args) {
 
-    Scanner scanner = new Scanner(System.in); //System.in = Eingaben werden über Tastatur gelesen
+    Scanner scanner = new Scanner(System.in);
     String answer;
-    double number1 = 0;
-    double number2 = 0;
-    boolean validNumber;
 
     do {
 
-      validNumber = false;
-      do {
-        System.out.print("Gib die erste Zahl ein: ");
-        if(scanner.hasNextDouble()) {
-          number1 = scanner.nextDouble();
-          validNumber = true;
-        } else {
-          System.out.println("Bitte gebe eine Zahl ein! ");
-          scanner.next();
-        }
-      } while(!validNumber);
+      double number1 = getValidNumber(scanner, "Gib die erste Zahl ein: ");
 
       String operator;
       do {
@@ -34,17 +21,7 @@ public class Calculator {
       } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/"));
 
 
-      validNumber = false;
-      do {
-        System.out.print("Gib die zweite Zahl ein: ");
-        if(scanner.hasNextDouble()) {
-          number2 = scanner.nextDouble();
-          validNumber = true;
-        } else {
-          System.out.println("Bitte gebe eine Zahl ein! ");
-          scanner.next();
-        }
-      } while(!validNumber);
+      double number2 = getValidNumber(scanner, "Gib die zweite Zahl ein: ");
 
 
       switch (operator) {
@@ -93,5 +70,23 @@ public class Calculator {
 
     scanner.close();
 
+  }
+
+  public static double getValidNumber(Scanner scanner, String inputText) {
+
+    boolean validNumber = false;
+    double number = 0;
+    do {
+      System.out.print(inputText);
+      if(scanner.hasNextDouble()) {
+        number = scanner.nextDouble();
+        validNumber = true;
+      } else {
+        System.out.println("Bitte gebe eine Zahl ein! ");
+        scanner.next();
+      }
+    } while (!validNumber);
+
+      return number;
   }
 }
