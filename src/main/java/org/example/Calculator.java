@@ -11,15 +11,7 @@ public class Calculator {
 
       double number1 = getValidNumber(scanner, "Gib die erste Zahl ein: ");
 
-      String operator;
-      do {
-        System.out.print("Wähle einen Operator (+, -, *, /): ");
-        operator = scanner.next();
-        if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/")) {
-          System.out.println("Bitte gib einen der erlaubten Operatoren ein!");
-        }
-      } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/"));
-
+      String operator = getValidOperator(scanner, "Wähle einen Operator aus: ");
 
       double number2 = getValidNumber(scanner, "Gib die zweite Zahl ein: ");
 
@@ -88,5 +80,21 @@ public class Calculator {
     } while (!validNumber);
 
       return number;
+  }
+
+
+  public static String getValidOperator(Scanner scanner, String inputText) {
+
+    String operator;
+    do {
+      System.out.print(inputText);
+      operator = scanner.next();
+      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/")) {
+        System.out.println("Bitte gib einen der erlaubten Operatoren ein!");
+      }
+    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/"));
+
+    return operator;
+
   }
 }
