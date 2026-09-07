@@ -16,6 +16,7 @@ public class Calculator {
       double number2 = getValidNumber(scanner, "Gib die zweite Zahl ein: ");
 
 
+
       switch (operator) {
         case "+":
           System.out.println("Du hast dich für die Addition entschieden." + " Das Ergebnis ist: " +
@@ -48,16 +49,7 @@ public class Calculator {
 
       }
 
-
-      do {
-        System.out.print("Möchtest du weiter rechnen? Ja oder Nein? ");
-        answer = scanner.next();
-
-        if(!answer.equalsIgnoreCase("Ja") && !answer.equalsIgnoreCase("Nein")) {
-          System.out.println("Bitte sag entweder Ja oder Nein! ");
-        }
-      } while (!answer.equalsIgnoreCase("Ja") && !answer.equalsIgnoreCase("Nein"));
-
+      answer = getValidAnswer(scanner, "Möchtest du weiter rechnen? Ja oder Nein? ");
     } while(answer.equalsIgnoreCase("Ja"));
 
     scanner.close();
@@ -97,4 +89,21 @@ public class Calculator {
     return operator;
 
   }
+
+
+  public static String getValidAnswer(Scanner scanner, String inputText) {
+
+    String answer;
+    do {
+      System.out.print(inputText);
+      answer = scanner.next();
+
+      if(!answer.equalsIgnoreCase("Ja") && !answer.equalsIgnoreCase("Nein")) {
+        System.out.println("Bitte sag entweder Ja oder Nein! ");
+      }
+    } while (!answer.equalsIgnoreCase("Ja") && !answer.equalsIgnoreCase("Nein"));
+
+    return answer;
+  }
+
 }
