@@ -15,24 +15,29 @@ public class Calculator {
 
       double number2 = getValidNumber(scanner, "Gib die zweite Zahl ein: ");
 
+      double result = 0;
+      boolean validResult = false;
 
 
       switch (operator) {
         case "+":
-          System.out.println("Du hast dich für die Addition entschieden." + " Das Ergebnis ist: " +
-              (number1 + number2));
+          result = number1 + number2;
+          validResult = true;
+          System.out.print("Du hast dich für die Addition entschieden." + " Das Ergebnis ist: ");
           break;
 
         case "-":
-          System.out.println(
-              "Du hast dich für die Subtraktion entschieden." + " Das Ergebnis ist: " +
-                  (number1 - number2));
+          result = number1 - number2;
+          validResult = true;
+          System.out.print(
+              "Du hast dich für die Subtraktion entschieden." + " Das Ergebnis ist: ");
           break;
 
         case "*":
-          System.out.println(
-              "Du hast dich für die Multiplikation entschieden." + " Das Ergebnis ist: " +
-                  (number1 * number2));
+          result = number1 * number2;
+          validResult = true;
+          System.out.print(
+              "Du hast dich für die Multiplikation entschieden." + " Das Ergebnis ist: ");
           break;
 
         case "/":
@@ -40,15 +45,23 @@ public class Calculator {
             System.out.println(
                 "Du hast dich für die Division entschieden, aber es ist nicht erlaubt durch 0 zu teilen!");
           } else {
-            System.out.println(
-                "Du hast dich für die Division entschieden." + " Das Ergebnis ist: " +
-                    (number1 / number2));
+            result = number1 / number2;
+            validResult = true;
+            System.out.print("Du hast dich für die Division entschieden." + " Das Ergebnis ist: ");
           }
+
 
           break;
 
       }
 
+      if (validResult) {
+        if (result % 1 == 0) {
+          System.out.printf("%.0f%n", result);
+        } else {
+          System.out.println(result);
+        }
+      }
       answer = getValidAnswer(scanner, "Möchtest du weiter rechnen? Ja oder Nein? ");
     } while(answer.equalsIgnoreCase("Ja"));
 
