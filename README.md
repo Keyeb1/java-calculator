@@ -4,7 +4,7 @@ A Java-based calculator that is being developed step by step from a simple conso
 
 The project started as a way to refresh and deepen my Java knowledge after completing my Computer Science degree. Instead of only reviewing theory, I am rebuilding my Java skills by developing a real application incrementally and understanding the concepts behind each implementation.
 
-As the project evolves, the goal is to move beyond a traditional calculator. The long-term vision is to explore how modern software engineering and AI technologies can be combined to create a calculator that users can interact with more naturally — including conversational input and LLM-based functionality.
+As the project evolves, the goal is to move beyond a traditional calculator. The long-term vision is to explore how modern software engineering and AI technologies can be combined to create a calculator that users can interact with more naturally including conversational input and LLM-based functionality.
 
 The project also serves as a practical environment for learning and applying professional software development workflows, including Git, GitHub, clean commit history, refactoring, testing, and application architecture.
 
