@@ -98,7 +98,7 @@ Roadmap
 
 The project is developed incrementally. Each stage builds on the previous one instead of introducing all functionality at once.
 
-Phase 1 — Java Fundamentals ✅
+Phase 1 — Java Fundamentals
 
 * Basic arithmetic operations
 * Console input
