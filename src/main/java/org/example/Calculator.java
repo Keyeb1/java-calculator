@@ -13,7 +13,11 @@ public class Calculator {
 
       String operator = getValidOperator(scanner, "Wähle einen Operator aus: ");
 
-      double number2 = getValidNumber(scanner, "Gib die zweite Zahl ein: ");
+      double number2 = 0.0;
+
+      if (operator.equals("+") || operator.equals("-") || operator.equals("*") || operator.equals("/")) {
+        number2 = getValidNumber(scanner, "Gib die zweite Zahl ein: ");
+      }
 
       double result = 0;
       boolean validResult = false;
