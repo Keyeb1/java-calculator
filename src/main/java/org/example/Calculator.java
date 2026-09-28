@@ -11,7 +11,7 @@ public class Calculator {
 
       double number1 = getValidNumber(scanner, "Gib die erste Zahl ein: ");
 
-      String operator = getValidOperator(scanner, "Wähle einen Operator aus: ");
+      String operator = getValidOperator(scanner, "Wähle einen Operator aus ('+','-','*','/', 'sqrt'): ");
 
       double number2 = 0.0;
 
@@ -53,8 +53,17 @@ public class Calculator {
             validResult = true;
             System.out.print("Du hast dich für die Division entschieden." + " Das Ergebnis ist: ");
           }
+          break;
 
-
+        case "sqrt":
+          if(number1 < 0) {
+            System.out.println("Du hast dich für die Quadratwurzel entschieden, aber hier sind keine negativen Zahlen erlaubt!");
+          } else {
+            result = Math.sqrt(number1);
+            validResult = true;
+            System.out.print(
+                "Du hast dich für die Quadratwurzel entschieden." + " Das Ergebnis ist: ");
+          }
           break;
 
       }
@@ -66,7 +75,7 @@ public class Calculator {
           System.out.println(result);
         }
       }
-      answer = getValidAnswer(scanner, "Möchtest du weiter rechnen? Ja oder Nein? ");
+      answer = getValidAnswer(scanner, "Möchtest du den Taschenrechner neustarten? (Ja/Nein): ");
     } while(answer.equalsIgnoreCase("Ja"));
 
     scanner.close();
@@ -98,10 +107,10 @@ public class Calculator {
     do {
       System.out.print(inputText);
       operator = scanner.next();
-      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/")) {
+      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt")) {
         System.out.println("Bitte gib einen der erlaubten Operatoren ein!");
       }
-    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/"));
+    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt"));
 
     return operator;
 
