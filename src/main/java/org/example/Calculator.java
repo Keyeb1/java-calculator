@@ -11,7 +11,7 @@ public class Calculator {
 
       double number1 = getValidNumber(scanner, "Gib die erste Zahl ein: ");
 
-      String operator = getValidOperator(scanner, "Wähle einen Operator aus ('+','-','*','/', 'sqrt'): ");
+      String operator = getValidOperator(scanner, "Wähle einen Operator aus ('+','-','*','/', 'sqrt', 'square'): ");
 
       double number2 = 0.0;
 
@@ -61,11 +61,15 @@ public class Calculator {
           } else {
             result = Math.sqrt(number1);
             validResult = true;
-            System.out.print(
-                "Du hast dich für die Quadratwurzel entschieden." + " Das Ergebnis ist: ");
+            System.out.print("Du hast dich für die Quadratwurzel entschieden." + " Das Ergebnis ist: ");
           }
           break;
 
+        case "square":
+          result = Math.pow(number1,2);
+          validResult = true;
+          System.out.print("Du hast dich für das Quadrat (x^2) entschieden." + " Das Ergebnis ist: ");
+          break;
       }
 
       if (validResult) {
@@ -107,10 +111,10 @@ public class Calculator {
     do {
       System.out.print(inputText);
       operator = scanner.next();
-      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt")) {
+      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("square")) {
         System.out.println("Bitte gib einen der erlaubten Operatoren ein!");
       }
-    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt"));
+    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("square"));
 
     return operator;
 
