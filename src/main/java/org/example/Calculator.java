@@ -11,12 +11,18 @@ public class Calculator {
 
       double number1 = getValidNumber(scanner, "Gib die erste Zahl ein: ");
 
-      String operator = getValidOperator(scanner, "Wähle einen Operator aus ('+','-','*','/', 'sqrt', 'square'): ");
+      String operator = getValidOperator(scanner, "Wähle einen Operator aus ('+','-','*','/', 'sqrt', 'power'): ");
 
       double number2 = 0.0;
 
       if (operator.equals("+") || operator.equals("-") || operator.equals("*") || operator.equals("/")) {
         number2 = getValidNumber(scanner, "Gib die zweite Zahl ein: ");
+      }
+
+      double exponent = 0.0;
+
+      if (operator.equals("power")) {
+        exponent = getValidNumber(scanner, "Gib den Exponent ein: ");
       }
 
       double result = 0;
@@ -65,11 +71,12 @@ public class Calculator {
           }
           break;
 
-        case "square":
-          result = Math.pow(number1,2);
+        case "power":
+          result = Math.pow(number1, exponent);
           validResult = true;
-          System.out.print("Du hast dich für das Quadrat (x^2) entschieden." + " Das Ergebnis ist: ");
+          System.out.print("Du hast dich für die Potenz entschieden." + " Das Ergebnis ist: ");
           break;
+
       }
 
       if (validResult) {
@@ -111,10 +118,10 @@ public class Calculator {
     do {
       System.out.print(inputText);
       operator = scanner.next();
-      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("square")) {
+      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("power")) {
         System.out.println("Bitte gib einen der erlaubten Operatoren ein!");
       }
-    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("square"));
+    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("power"));
 
     return operator;
 
