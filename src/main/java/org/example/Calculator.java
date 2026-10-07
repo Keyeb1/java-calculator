@@ -4,6 +4,7 @@ import java.util.Scanner;
 public class Calculator {
   public static void main(String[] args) {
 
+    showWelcomeMessage();
     Scanner scanner = new Scanner(System.in);
     String answer;
 
@@ -90,6 +91,25 @@ public class Calculator {
     } while(answer.equalsIgnoreCase("Ja"));
 
     scanner.close();
+
+  }
+
+
+  public static void showWelcomeMessage() {
+    System.out.println("======================================== JAVA CALCULATOR ========================================");
+    System.out.println("Verfügbare Operationen:");
+    System.out.println("+      Addition");
+    System.out.println("-      Subtraktion");
+    System.out.println("*      Multiplikation");
+    System.out.println("/      Division");
+    System.out.println("sqrt   Quadratwurzel");
+    System.out.println("power  Potenzberechnung");
+    System.out.println();
+    System.out.println("Folge einfach den Anweisungen und gib die");
+    System.out.println("gewünschten Werte in der Konsole ein.");
+    System.out.println();
+    System.out.println("Los geht's!");
+    System.out.println("===============================================================================================");
 
   }
 
