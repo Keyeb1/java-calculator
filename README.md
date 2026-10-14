@@ -80,7 +80,7 @@ Running the Project
 
 Prerequisites
 
-* Java 17 or higher
+* JDK 25 (LTS), for example Eclipse Temurin 25
 * Maven
 * IntelliJ IDEA or another Java IDE
 
