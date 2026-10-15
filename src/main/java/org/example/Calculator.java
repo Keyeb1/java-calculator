@@ -6,6 +6,7 @@ public class Calculator {
 
     showWelcomeMessage();
     Scanner scanner = new Scanner(System.in);
+    CalculatorEngine engine = new CalculatorEngine();
     String answer;
 
     do {
@@ -26,66 +27,50 @@ public class Calculator {
         exponent = getValidNumber(scanner, "Gib den Exponent ein: ");
       }
 
-      double result = 0;
-      boolean validResult = false;
+      try {
+        double result;
+        switch (operator) {
+          case "+":
+            result = engine.add(number1, number2);
+            System.out.print("Du hast dich für die Addition entschieden." + " Das Ergebnis ist: ");
+            break;
 
+          case "-":
+            result = engine.subtract(number1, number2);
+            System.out.print("Du hast dich für die Subtraktion entschieden." + " Das Ergebnis ist: ");
+            break;
 
-      switch (operator) {
-        case "+":
-          result = number1 + number2;
-          validResult = true;
-          System.out.print("Du hast dich für die Addition entschieden." + " Das Ergebnis ist: ");
-          break;
+          case "*":
+            result = engine.multiply(number1, number2);
+            System.out.print("Du hast dich für die Multiplikation entschieden." + " Das Ergebnis ist: ");
+            break;
 
-        case "-":
-          result = number1 - number2;
-          validResult = true;
-          System.out.print(
-              "Du hast dich für die Subtraktion entschieden." + " Das Ergebnis ist: ");
-          break;
-
-        case "*":
-          result = number1 * number2;
-          validResult = true;
-          System.out.print(
-              "Du hast dich für die Multiplikation entschieden." + " Das Ergebnis ist: ");
-          break;
-
-        case "/":
-          if(number2 == 0) {
-            System.out.println(
-                "Du hast dich für die Division entschieden, aber es ist nicht erlaubt durch 0 zu teilen!");
-          } else {
-            result = number1 / number2;
-            validResult = true;
+          case "/":
+            result = engine.divide(number1, number2);
             System.out.print("Du hast dich für die Division entschieden." + " Das Ergebnis ist: ");
-          }
-          break;
+            break;
 
-        case "sqrt":
-          if(number1 < 0) {
-            System.out.println("Du hast dich für die Quadratwurzel entschieden, aber hier sind keine negativen Zahlen erlaubt!");
-          } else {
-            result = Math.sqrt(number1);
-            validResult = true;
+          case "sqrt":
+            result = engine.sqrt(number1);
             System.out.print("Du hast dich für die Quadratwurzel entschieden." + " Das Ergebnis ist: ");
-          }
-          break;
+            break;
 
-        case "power":
-          result = Math.pow(number1, exponent);
-          validResult = true;
-          System.out.print("Du hast dich für die Potenz entschieden." + " Das Ergebnis ist: ");
-          break;
+          case "power":
+            result = engine.power(number1, exponent);
+            System.out.print("Du hast dich für die Potenz entschieden." + " Das Ergebnis ist: ");
+            break;
 
-      }
+          default:
+            throw new IllegalArgumentException("Unbekannter Operator: " + operator);
+        }
 
-      if (validResult) {
         if (result % 1 == 0) {
           System.out.printf("%.0f%n", result);
         } else {
           System.out.println(result);
         }
+      } catch (IllegalArgumentException | ArithmeticException exception) {
+        System.out.println("Fehler: " + exception.getMessage());
       }
       answer = getValidAnswer(scanner, "Möchtest du den Taschenrechner neustarten? (Ja/Nein): ");
     } while(answer.equalsIgnoreCase("Ja"));
