@@ -1,30 +1,43 @@
 package org.example;
+import java.io.PrintStream;
 import java.util.Scanner;
 
 public class Calculator {
   public static void main(String[] args) {
+    try (Scanner scanner = new Scanner(System.in)) {
+      run(scanner, System.out);
+    }
+  }
 
-    showWelcomeMessage();
-    Scanner scanner = new Scanner(System.in);
+  static void run(Scanner scanner, PrintStream output) {
+    showWelcomeMessage(output);
     CalculatorEngine engine = new CalculatorEngine();
-    String answer;
+    Double lastResult = null;
+    boolean continueWithResult = false;
 
-    do {
+    while (true) {
+      double number1 = continueWithResult
+          ? lastResult
+          : getValidNumber(scanner, output, "Gib die erste Zahl ein: ");
 
-      double number1 = getValidNumber(scanner, "Gib die erste Zahl ein: ");
+      if (continueWithResult) {
+        output.print("Aktuelles Ergebnis: ");
+        printNumber(output, number1);
+      }
 
-      String operator = getValidOperator(scanner, "Wähle einen Operator aus ('+','-','*','/', 'sqrt', 'power'): ");
+      String operator = getValidOperator(scanner, output,
+          "Wähle einen Operator aus ('+','-','*','/', 'sqrt', 'power'): ");
 
       double number2 = 0.0;
 
       if (operator.equals("+") || operator.equals("-") || operator.equals("*") || operator.equals("/")) {
-        number2 = getValidNumber(scanner, "Gib die zweite Zahl ein: ");
+        number2 = getValidNumber(scanner, output, "Gib die zweite Zahl ein: ");
       }
 
       double exponent = 0.0;
 
       if (operator.equals("power")) {
-        exponent = getValidNumber(scanner, "Gib den Exponent ein: ");
+        exponent = getValidNumber(scanner, output, "Gib den Exponent ein: ");
       }
 
       try {
@@ -32,99 +45,108 @@ public class Calculator {
         switch (operator) {
           case "+":
             result = engine.add(number1, number2);
-            System.out.print("Du hast dich für die Addition entschieden." + " Das Ergebnis ist: ");
+            output.print("Du hast dich für die Addition entschieden." + " Das Ergebnis ist: ");
             break;
 
           case "-":
             result = engine.subtract(number1, number2);
-            System.out.print("Du hast dich für die Subtraktion entschieden." + " Das Ergebnis ist: ");
+            output.print("Du hast dich für die Subtraktion entschieden." + " Das Ergebnis ist: ");
             break;
 
           case "*":
             result = engine.multiply(number1, number2);
-            System.out.print("Du hast dich für die Multiplikation entschieden." + " Das Ergebnis ist: ");
+            output.print("Du hast dich für die Multiplikation entschieden." + " Das Ergebnis ist: ");
             break;
 
           case "/":
             result = engine.divide(number1, number2);
-            System.out.print("Du hast dich für die Division entschieden." + " Das Ergebnis ist: ");
+            output.print("Du hast dich für die Division entschieden." + " Das Ergebnis ist: ");
             break;
 
           case "sqrt":
             result = engine.sqrt(number1);
-            System.out.print("Du hast dich für die Quadratwurzel entschieden." + " Das Ergebnis ist: ");
+            output.print("Du hast dich für die Quadratwurzel entschieden." + " Das Ergebnis ist: ");
             break;
 
           case "power":
             result = engine.power(number1, exponent);
-            System.out.print("Du hast dich für die Potenz entschieden." + " Das Ergebnis ist: ");
+            output.print("Du hast dich für die Potenz entschieden." + " Das Ergebnis ist: ");
             break;
 
           default:
             throw new IllegalArgumentException("Unbekannter Operator: " + operator);
         }
 
-        if (result % 1 == 0) {
-          System.out.printf("%.0f%n", result);
-        } else {
-          System.out.println(result);
-        }
+        lastResult = result;
+        printNumber(output, result);
       } catch (IllegalArgumentException | ArithmeticException exception) {
-        System.out.println("Fehler: " + exception.getMessage());
+        output.println("Fehler: " + exception.getMessage());
       }
-      answer = getValidAnswer(scanner, "Möchtest du den Taschenrechner neustarten? (Ja/Nein): ");
-    } while(answer.equalsIgnoreCase("Ja"));
+      String choice = getValidNextAction(scanner, output, lastResult != null);
+      if (choice.equals("3")) {
+        return;
+      }
+      continueWithResult = choice.equals("1");
+      if (choice.equals("2")) {
+        lastResult = null;
+      }
+    }
+  }
 
-    scanner.close();
-
+  private static void printNumber(PrintStream output, double number) {
+    if (number % 1 == 0) {
+      output.printf("%.0f%n", number);
+    } else {
+      output.println(number);
+    }
   }
 
 
-  public static void showWelcomeMessage() {
-    System.out.println("======================================== JAVA CALCULATOR ========================================");
-    System.out.println("Verfügbare Operationen:");
-    System.out.println("+      Addition");
-    System.out.println("-      Subtraktion");
-    System.out.println("*      Multiplikation");
-    System.out.println("/      Division");
-    System.out.println("sqrt   Quadratwurzel");
-    System.out.println("power  Potenzberechnung");
-    System.out.println();
-    System.out.println("Folge einfach den Anweisungen und gib die");
-    System.out.println("gewünschten Werte in der Konsole ein.");
-    System.out.println();
-    System.out.println("Los geht's!");
-    System.out.println("===============================================================================================");
+  private static void showWelcomeMessage(PrintStream output) {
+    output.println("======================================== JAVA CALCULATOR ========================================");
+    output.println("Verfügbare Operationen:");
+    output.println("+      Addition");
+    output.println("-      Subtraktion");
+    output.println("*      Multiplikation");
+    output.println("/      Division");
+    output.println("sqrt   Quadratwurzel");
+    output.println("power  Potenzberechnung");
+    output.println();
+    output.println("Folge einfach den Anweisungen und gib die");
+    output.println("gewünschten Werte in der Konsole ein.");
+    output.println();
+    output.println("Los geht's!");
+    output.println("===============================================================================================");
 
   }
 
-  public static double getValidNumber(Scanner scanner, String inputText) {
+  private static double getValidNumber(Scanner scanner, PrintStream output, String inputText) {
 
     boolean validNumber = false;
     double number = 0;
     do {
-      System.out.print(inputText);
+      output.print(inputText);
       if(scanner.hasNextDouble()) {
         number = scanner.nextDouble();
         validNumber = true;
       } else {
-        System.out.println("Bitte gebe eine Zahl ein! ");
+        output.println("Bitte gebe eine Zahl ein! ");
         scanner.next();
       }
     } while (!validNumber);
 
-      return number;
+    return number;
   }
 
 
-  public static String getValidOperator(Scanner scanner, String inputText) {
+  private static String getValidOperator(Scanner scanner, PrintStream output, String inputText) {
 
     String operator;
     do {
-      System.out.print(inputText);
+      output.print(inputText);
       operator = scanner.next();
       if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("power")) {
-        System.out.println("Bitte gib einen der erlaubten Operatoren ein!");
+        output.println("Bitte gib einen der erlaubten Operatoren ein!");
       }
     } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("power"));
 
@@ -133,19 +155,23 @@ public class Calculator {
   }
 
 
-  public static String getValidAnswer(Scanner scanner, String inputText) {
-
-    String answer;
-    do {
-      System.out.print(inputText);
-      answer = scanner.next();
-
-      if(!answer.equalsIgnoreCase("Ja") && !answer.equalsIgnoreCase("Nein")) {
-        System.out.println("Bitte sag entweder Ja oder Nein! ");
+  private static String getValidNextAction(Scanner scanner, PrintStream output, boolean hasResult) {
+    while (true) {
+      output.println();
+      output.println("Was möchtest du als Nächstes tun?");
+      if (hasResult) {
+        output.println("1. Mit dem Ergebnis weiterrechnen");
       }
-    } while (!answer.equalsIgnoreCase("Ja") && !answer.equalsIgnoreCase("Nein"));
+      output.println("2. Neue Berechnung starten");
+      output.println("3. Taschenrechner beenden");
+      output.print("Deine Auswahl: ");
 
-    return answer;
+      String choice = scanner.next();
+      if (choice.equals("2") || choice.equals("3") || (hasResult && choice.equals("1"))) {
+        return choice;
+      }
+      output.println(hasResult ? "Bitte wähle 1, 2 oder 3." : "Bitte wähle 2 oder 3.");
+    }
   }
 
 }
