@@ -185,6 +185,17 @@ class CalculatorTest {
     assertTrue(output.contains("Fehler: Die Berechnung liefert kein endliches Ergebnis"));
   }
 
+  @Test
+  void calculatesAbsoluteValuesAndContinuesWithThePreviousResult() {
+    String output = runCalculator("-5\nabs\n1\n-\n8\n1\nabs\n3\n");
+
+    assertEquals(List.of("5", "-3", "3"), resultsIn(output));
+    assertTrue(output.contains("abs    Betrag"));
+    assertTrue(output.contains("Aktuelles Ergebnis: -3"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
   private static String runCalculator(String input) {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     try (Scanner scanner = new Scanner(input).useLocale(Locale.US);

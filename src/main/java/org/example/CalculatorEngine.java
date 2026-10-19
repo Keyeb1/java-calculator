@@ -38,6 +38,11 @@ public class CalculatorEngine {
     return checkedResult(Math.sqrt(number));
   }
 
+  public double abs(double number) {
+    validateOperands(number);
+    return checkedResult(Math.abs(number));
+  }
+
   public double power(double base, double exponent) {
     validateOperands(base, exponent);
     return checkedResult(Math.pow(base, exponent));

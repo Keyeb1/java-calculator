@@ -44,6 +44,12 @@ class CalculatorEngineTest {
   }
 
   @ParameterizedTest
+  @CsvSource({"5, 5", "-5, 5", "0, 0", "-0.0, 0.0", "2.75, 2.75", "-2.75, 2.75"})
+  void calculatesAbsoluteValues(double number, double expected) {
+    assertEquals(expected, engine.abs(number));
+  }
+
+  @ParameterizedTest
   @CsvSource({"2, 3, 8", "-2, 3, -8", "5, 0, 1", "2, -2, 0.25", "9, 0.5, 3", "0, 0, 1"})
   void calculatesPowers(double base, double exponent, double expected) {
     assertEquals(expected, engine.power(base, exponent), TOLERANCE);
@@ -88,6 +94,7 @@ class CalculatorEngineTest {
     assertThrows(IllegalArgumentException.class, () -> engine.divide(operand, 1));
     assertThrows(IllegalArgumentException.class, () -> engine.divide(1, operand));
     assertThrows(IllegalArgumentException.class, () -> engine.sqrt(operand));
+    assertThrows(IllegalArgumentException.class, () -> engine.abs(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.power(operand, 1));
     assertThrows(IllegalArgumentException.class, () -> engine.power(1, operand));
   }

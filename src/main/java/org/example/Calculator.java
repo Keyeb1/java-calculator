@@ -3,7 +3,7 @@ import java.io.PrintStream;
 import java.util.Scanner;
 
 public class Calculator {
-  public static void main(String[] args) {
+  static void main(String[] args) {
     try (Scanner scanner = new Scanner(System.in)) {
       run(scanner, System.out);
     }
@@ -26,7 +26,7 @@ public class Calculator {
       }
 
       String operator = getValidOperator(scanner, output,
-          "Wähle einen Operator aus ('+','-','*','/', 'sqrt', 'power'): ");
+          "Wähle einen Operator aus ('+','-','*','/', 'sqrt', 'abs', 'power'): ");
 
       double number2 = 0.0;
 
@@ -66,6 +66,11 @@ public class Calculator {
           case "sqrt":
             result = engine.sqrt(number1);
             output.print("Du hast dich für die Quadratwurzel entschieden." + " Das Ergebnis ist: ");
+            break;
+
+          case "abs":
+            result = engine.abs(number1);
+            output.print("Du hast dich für die Betragsfunktion entschieden." + " Das Ergebnis ist: ");
             break;
 
           case "power":
@@ -110,6 +115,7 @@ public class Calculator {
     output.println("*      Multiplikation");
     output.println("/      Division");
     output.println("sqrt   Quadratwurzel");
+    output.println("abs    Betrag");
     output.println("power  Potenzberechnung");
     output.println();
     output.println("Folge einfach den Anweisungen und gib die");
@@ -145,10 +151,10 @@ public class Calculator {
     do {
       output.print(inputText);
       operator = scanner.next();
-      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("power")) {
+      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("power")) {
         output.println("Bitte gib einen der erlaubten Operatoren ein!");
       }
-    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("power"));
+    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("power"));
 
     return operator;
 
