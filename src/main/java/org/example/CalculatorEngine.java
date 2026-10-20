@@ -43,6 +43,12 @@ public class CalculatorEngine {
     return checkedResult(Math.abs(number));
   }
 
+  /** Berechnet den Sinus eines Winkels im Bogenmaß (Radiant). */
+  public double sin(double angle) {
+    validateOperands(angle);
+    return checkedResult(Math.sin(angle));
+  }
+
   public double power(double base, double exponent) {
     validateOperands(base, exponent);
     return checkedResult(Math.pow(base, exponent));

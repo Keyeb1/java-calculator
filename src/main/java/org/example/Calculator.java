@@ -14,6 +14,8 @@ public class Calculator {
     CalculatorEngine engine = new CalculatorEngine();
     Double lastResult = null;
     boolean continueWithResult = false;
+    boolean degreeMode = true;
+    output.println("Aktueller Winkelmodus: DEG");
 
     while (true) {
       double number1 = continueWithResult
@@ -25,8 +27,15 @@ public class Calculator {
         printNumber(output, number1);
       }
 
-      String operator = getValidOperator(scanner, output,
-          "Wähle einen Operator aus ('+','-','*','/', 'sqrt', 'abs', 'power'): ");
+      String operator;
+      do {
+        operator = getValidOperator(scanner, output,
+            "Wähle einen Operator aus ('+','-','*','/', 'sqrt', 'abs', 'sin', 'power', 'mode'): ");
+        if (operator.equals("mode")) {
+          degreeMode = !degreeMode;
+          output.println("Aktueller Winkelmodus: " + (degreeMode ? "DEG" : "RAD"));
+        }
+      } while (operator.equals("mode"));
 
       double number2 = 0.0;
 
@@ -73,6 +82,11 @@ public class Calculator {
             output.print("Du hast dich für die Betragsfunktion entschieden." + " Das Ergebnis ist: ");
             break;
 
+          case "sin":
+            result = engine.sin(degreeMode ? Math.toRadians(number1) : number1);
+            output.print("Du hast dich für den Sinus entschieden." + " Das Ergebnis ist: ");
+            break;
+
           case "power":
             result = engine.power(number1, exponent);
             output.print("Du hast dich für die Potenz entschieden." + " Das Ergebnis ist: ");
@@ -116,7 +130,9 @@ public class Calculator {
     output.println("/      Division");
     output.println("sqrt   Quadratwurzel");
     output.println("abs    Betrag");
+    output.println("sin    Sinus");
     output.println("power  Potenzberechnung");
+    output.println("mode   Zwischen DEG (Grad) und RAD (Radiant) wechseln; Standard ist DEG");
     output.println();
     output.println("Folge einfach den Anweisungen und gib die");
     output.println("gewünschten Werte in der Konsole ein.");
@@ -161,10 +177,10 @@ public class Calculator {
     do {
       output.print(inputText);
       operator = scanner.next();
-      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("power")) {
+      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("power") && !operator.equals("mode")) {
         output.println("Bitte gib einen der erlaubten Operatoren ein!");
       }
-    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("power"));
+    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("power") && !operator.equals("mode"));
 
     return operator;
 

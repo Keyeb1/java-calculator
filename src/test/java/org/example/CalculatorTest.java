@@ -2,6 +2,7 @@ package org.example;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayOutputStream;
@@ -17,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CalculatorTest {
+
+  private static final double TOLERANCE = 1e-12;
 
   @Test
   void additionWorks() {
@@ -279,6 +282,81 @@ class CalculatorTest {
     assertEquals(List.of("5", Double.toString(5 * Math.E)), resultsIn(output));
     assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
     assertTrue(output.contains("Aktuelles Ergebnis: 5"));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0, 0", "90, 1", "180, 0", "-90, -1"})
+  void calculatesSineInDegreesByDefault(int angle, double expected) {
+    String output = runCalculator(angle + "\nsin\n3\n");
+
+    assertEquals(1, resultsIn(output).size());
+    assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertTrue(output.contains("Aktueller Winkelmodus: DEG"));
+    assertTrue(output.contains("sin    Sinus"));
+    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @Test
+  void calculatesSineInRadiansFromAPreviousDivisionResult() {
+    String output = runCalculator("pi\n/\n2\n1\nmode\nsin\n3\n");
+
+    List<String> results = resultsIn(output);
+    assertEquals(2, results.size());
+    assertEquals(Math.PI / 2, Double.parseDouble(results.get(0)), TOLERANCE);
+    assertEquals(1, Double.parseDouble(results.get(1)), TOLERANCE);
+    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+    assertEquals(2, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
+  }
+
+  @Test
+  void switchesBackToDegreesWithoutCalculatingOrRequestingAnotherNumber() {
+    String output = runCalculator("90\nmode\nmode\nsin\n3\n");
+
+    assertEquals(1, resultsIn(output).size());
+    assertEquals(1, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertEquals(2, occurrencesOf(output, "Aktueller Winkelmodus: DEG"));
+    assertEquals(1, occurrencesOf(output, "Aktueller Winkelmodus: RAD"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+    assertEquals(1, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
+  }
+
+  @Test
+  void preservesTheLastResultAndAngleModeAfterAFailedContinuation() {
+    String output = runCalculator("90\n+\n0\n1\nmode\n/\n0\n1\nsin\n3\n");
+
+    List<String> results = resultsIn(output);
+    assertEquals(2, results.size());
+    assertEquals("90", results.get(0));
+    assertEquals(Math.sin(90), Double.parseDouble(results.get(1)), TOLERANCE);
+    assertTrue(output.contains("Fehler: Division durch null ist nicht erlaubt."));
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: 90"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(3, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
+  }
+
+  @Test
+  void preservesTheAngleModeWhenStartingANewCalculation() {
+    String output = runCalculator("pi\nmode\nsin\n2\npi\nsin\n3\n");
+
+    List<String> results = resultsIn(output);
+    assertEquals(2, results.size());
+    assertEquals(0, Double.parseDouble(results.get(0)), TOLERANCE);
+    assertEquals(0, Double.parseDouble(results.get(1)), TOLERANCE);
+    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(1, occurrencesOf(output, "Aktueller Winkelmodus: RAD"));
+  }
+
+  @Test
+  void leavesArithmeticAndConstantsUnchangedInRadiansMode() {
+    String output = runCalculator("e\nmode\n+\npi\n3\n");
+
+    assertEquals(1, resultsIn(output).size());
+    assertEquals(Math.E + Math.PI, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
   }
 
   private static String runCalculator(String input) {
