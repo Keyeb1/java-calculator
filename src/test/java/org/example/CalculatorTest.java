@@ -236,11 +236,49 @@ class CalculatorTest {
 
   @Test
   void rejectsOtherConstantsAndAcceptsPiOnRetry() {
-    String output = runCalculator("e\npi\n+\n0\n3\n");
+    String output = runCalculator("tau\npi\n+\n0\n3\n");
 
     assertEquals(List.of(Double.toString(Math.PI)), resultsIn(output));
     assertEquals(1, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
     assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"e", "E"})
+  void acceptsEulerNumberAsTheFirstOperand(String e) {
+    String output = runCalculator(e + "\n+\n0\n3\n");
+
+    assertEquals(List.of(Double.toString(Math.E)), resultsIn(output));
+    assertTrue(output.contains("Du kannst auch e oder E für die Eulersche Zahl eingeben."));
+    assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"e", "E"})
+  void acceptsEulerNumberAsTheSecondOperand(String e) {
+    String output = runCalculator("2\n+\n" + e + "\n3\n");
+
+    assertEquals(List.of(Double.toString(2 + Math.E)), resultsIn(output));
+    assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"e", "E"})
+  void acceptsEulerNumberAsTheExponent(String e) {
+    String output = runCalculator("2\npower\n" + e + "\n3\n");
+
+    assertEquals(List.of(Double.toString(Math.pow(2, Math.E))), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Gib den Exponent ein: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"e", "E"})
+  void acceptsEulerNumberWhenContinuingWithThePreviousResult(String e) {
+    String output = runCalculator("2\n+\n3\n1\n*\n" + e + "\n3\n");
+
+    assertEquals(List.of("5", Double.toString(5 * Math.E)), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertTrue(output.contains("Aktuelles Ergebnis: 5"));
   }
 
   private static String runCalculator(String input) {

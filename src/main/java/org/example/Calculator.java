@@ -121,6 +121,7 @@ public class Calculator {
     output.println("Folge einfach den Anweisungen und gib die");
     output.println("gewünschten Werte in der Konsole ein.");
     output.println("Du kannst pi (auch PI oder Pi) statt einer Zahl eingeben.");
+    output.println("Du kannst auch e oder E für die Eulersche Zahl eingeben.");
     output.println();
     output.println("Los geht's!");
     output.println("===============================================================================================");
@@ -140,6 +141,9 @@ public class Calculator {
         String input = scanner.next();
         if (input.equalsIgnoreCase("pi")) {
           number = Math.PI;
+          validNumber = true;
+        } else if (input.equalsIgnoreCase("e")) {
+          number = Math.E;
           validNumber = true;
         } else {
           output.println("Bitte gebe eine Zahl ein! ");
