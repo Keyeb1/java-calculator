@@ -120,6 +120,7 @@ public class Calculator {
     output.println();
     output.println("Folge einfach den Anweisungen und gib die");
     output.println("gewünschten Werte in der Konsole ein.");
+    output.println("Du kannst pi (auch PI oder Pi) statt einer Zahl eingeben.");
     output.println();
     output.println("Los geht's!");
     output.println("===============================================================================================");
@@ -136,8 +137,13 @@ public class Calculator {
         number = scanner.nextDouble();
         validNumber = true;
       } else {
-        output.println("Bitte gebe eine Zahl ein! ");
-        scanner.next();
+        String input = scanner.next();
+        if (input.equalsIgnoreCase("pi")) {
+          number = Math.PI;
+          validNumber = true;
+        } else {
+          output.println("Bitte gebe eine Zahl ein! ");
+        }
       }
     } while (!validNumber);
 

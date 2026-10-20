@@ -1,6 +1,8 @@
 package org.example;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -194,6 +196,51 @@ class CalculatorTest {
     assertTrue(output.contains("Aktuelles Ergebnis: -3"));
     assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
     assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"pi", "PI", "Pi", "pI"})
+  void acceptsPiAsTheFirstOperand(String pi) {
+    String output = runCalculator(pi + "\n+\n0\n3\n");
+
+    assertEquals(List.of(Double.toString(Math.PI)), resultsIn(output));
+    assertTrue(output.contains("Du kannst pi (auch PI oder Pi) statt einer Zahl eingeben."));
+    assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"pi", "PI", "Pi", "pI"})
+  void acceptsPiAsTheSecondOperand(String pi) {
+    String output = runCalculator("2\n+\n" + pi + "\n3\n");
+
+    assertEquals(List.of(Double.toString(2 + Math.PI)), resultsIn(output));
+    assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
+  }
+
+  @Test
+  void acceptsPiAsTheExponent() {
+    String output = runCalculator("2\npower\npi\n3\n");
+
+    assertEquals(List.of(Double.toString(Math.pow(2, Math.PI))), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Gib den Exponent ein: "));
+  }
+
+  @Test
+  void acceptsPiWhenContinuingWithThePreviousResult() {
+    String output = runCalculator("2\n+\n3\n1\n*\npi\n3\n");
+
+    assertEquals(List.of("5", Double.toString(5 * Math.PI)), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertTrue(output.contains("Aktuelles Ergebnis: 5"));
+  }
+
+  @Test
+  void rejectsOtherConstantsAndAcceptsPiOnRetry() {
+    String output = runCalculator("e\npi\n+\n0\n3\n");
+
+    assertEquals(List.of(Double.toString(Math.PI)), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
+    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
   }
 
   private static String runCalculator(String input) {
