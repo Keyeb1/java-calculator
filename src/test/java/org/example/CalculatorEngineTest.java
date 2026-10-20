@@ -64,6 +64,21 @@ class CalculatorEngineTest {
     assertEquals(0, engine.sin(Math.PI), TOLERANCE);
   }
 
+  @Test
+  void calculatesCosineOfZero() {
+    assertEquals(1, engine.cos(0), TOLERANCE);
+  }
+
+  @Test
+  void calculatesCosineOfHalfPiInRadians() {
+    assertEquals(0, engine.cos(Math.PI / 2), TOLERANCE);
+  }
+
+  @Test
+  void calculatesCosineOfPiInRadians() {
+    assertEquals(-1, engine.cos(Math.PI), TOLERANCE);
+  }
+
   @ParameterizedTest
   @CsvSource({"2, 3, 8", "-2, 3, -8", "5, 0, 1", "2, -2, 0.25", "9, 0.5, 3", "0, 0, 1"})
   void calculatesPowers(double base, double exponent, double expected) {
@@ -111,6 +126,7 @@ class CalculatorEngineTest {
     assertThrows(IllegalArgumentException.class, () -> engine.sqrt(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.abs(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.sin(operand));
+    assertThrows(IllegalArgumentException.class, () -> engine.cos(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.power(operand, 1));
     assertThrows(IllegalArgumentException.class, () -> engine.power(1, operand));
   }

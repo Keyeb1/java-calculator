@@ -49,6 +49,12 @@ public class CalculatorEngine {
     return checkedResult(Math.sin(angle));
   }
 
+  /** Berechnet den Kosinus eines Winkels im Bogenmaß (Radiant). */
+  public double cos(double angle) {
+    validateOperands(angle);
+    return checkedResult(Math.cos(angle));
+  }
+
   public double power(double base, double exponent) {
     validateOperands(base, exponent);
     return checkedResult(Math.pow(base, exponent));

@@ -30,7 +30,7 @@ public class Calculator {
       String operator;
       do {
         operator = getValidOperator(scanner, output,
-            "Wähle einen Operator aus ('+','-','*','/', 'sqrt', 'abs', 'sin', 'power', 'mode'): ");
+            "Wähle einen Operator aus ('+','-','*','/', 'sqrt', 'abs', 'sin', 'cos', 'power', 'mode'): ");
         if (operator.equals("mode")) {
           degreeMode = !degreeMode;
           output.println("Aktueller Winkelmodus: " + (degreeMode ? "DEG" : "RAD"));
@@ -87,6 +87,11 @@ public class Calculator {
             output.print("Du hast dich für den Sinus entschieden." + " Das Ergebnis ist: ");
             break;
 
+          case "cos":
+            result = engine.cos(degreeMode ? Math.toRadians(number1) : number1);
+            output.print("Du hast dich für den Kosinus entschieden." + " Das Ergebnis ist: ");
+            break;
+
           case "power":
             result = engine.power(number1, exponent);
             output.print("Du hast dich für die Potenz entschieden." + " Das Ergebnis ist: ");
@@ -131,6 +136,7 @@ public class Calculator {
     output.println("sqrt   Quadratwurzel");
     output.println("abs    Betrag");
     output.println("sin    Sinus");
+    output.println("cos    Kosinus");
     output.println("power  Potenzberechnung");
     output.println("mode   Zwischen DEG (Grad) und RAD (Radiant) wechseln; Standard ist DEG");
     output.println();
@@ -177,10 +183,10 @@ public class Calculator {
     do {
       output.print(inputText);
       operator = scanner.next();
-      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("power") && !operator.equals("mode")) {
+      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("cos") && !operator.equals("power") && !operator.equals("mode")) {
         output.println("Bitte gib einen der erlaubten Operatoren ein!");
       }
-    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("power") && !operator.equals("mode"));
+    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("cos") && !operator.equals("power") && !operator.equals("mode"));
 
     return operator;
 

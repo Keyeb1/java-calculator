@@ -359,6 +359,52 @@ class CalculatorTest {
     assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
   }
 
+  @ParameterizedTest
+  @CsvSource({"0, 1", "60, 0.5", "90, 0", "180, -1"})
+  void calculatesCosineInDegreesByDefault(int angle, double expected) {
+    String output = runCalculator(angle + "\ncos\n3\n");
+
+    assertEquals(1, resultsIn(output).size());
+    assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertTrue(output.contains("Aktueller Winkelmodus: DEG"));
+    assertTrue(output.contains("cos    Kosinus"));
+    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @Test
+  void calculatesCosineOfPiInRadiansMode() {
+    String output = runCalculator("pi\nmode\ncos\n3\n");
+
+    assertEquals(1, resultsIn(output).size());
+    assertEquals(-1, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
+    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @Test
+  void calculatesCosineWhenContinuingWithThePreviousResult() {
+    String output = runCalculator("30\n*\n2\n1\ncos\n3\n");
+
+    List<String> results = resultsIn(output);
+    assertEquals(2, results.size());
+    assertEquals("60", results.get(0));
+    assertEquals(0.5, Double.parseDouble(results.get(1)), TOLERANCE);
+    assertTrue(output.contains("Aktuelles Ergebnis: 60"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"NaN", "Infinity", "-Infinity"})
+  void rejectsNonFiniteCosineAngles(String angle) {
+    String output = runCalculator(angle + "\ncos\n3\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Fehler: Operanden müssen endliche Zahlen sein"));
+    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
   private static String runCalculator(String input) {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     try (Scanner scanner = new Scanner(input).useLocale(Locale.US);
