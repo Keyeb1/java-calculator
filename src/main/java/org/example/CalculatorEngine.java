@@ -55,6 +55,22 @@ public class CalculatorEngine {
     return checkedResult(Math.cos(angle));
   }
 
+  /**
+   * Berechnet den Tangens im Bogenmaß. Die Singularitätsprüfung erkennt exakt
+   * rekonstruierbare double-Werte ungerader Vielfacher von Math.PI / 2, ohne
+   * einen Toleranzbereich zu sperren. Andere Rundungswege und sehr große Winkel
+   * sind damit nicht allgemein zuverlässig erkennbar, da double nur Näherungen darstellt.
+   */
+  public double tan(double angle) {
+    validateOperands(angle);
+    double halfPi = Math.PI / 2;
+    double multiple = Math.rint(angle / halfPi);
+    if (Math.abs(multiple % 2) == 1 && angle == multiple * halfPi) {
+      throw new ArithmeticException("Tangens ist für diesen Winkel nicht definiert.");
+    }
+    return checkedResult(Math.tan(angle));
+  }
+
   public double power(double base, double exponent) {
     validateOperands(base, exponent);
     return checkedResult(Math.pow(base, exponent));

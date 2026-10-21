@@ -405,6 +405,89 @@ class CalculatorTest {
     assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
   }
 
+  @ParameterizedTest
+  @CsvSource({"0, 0", "45, 1", "180, 0", "-45, -1"})
+  void calculatesTangentInDegreesByDefault(int angle, double expected) {
+    String output = runCalculator(angle + "\ntan\n3\n");
+
+    assertEquals(1, resultsIn(output).size());
+    assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertTrue(output.contains("tan    Tangens"));
+    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {90, 270, -90, 450, -270})
+  void rejectsTangentSingularitiesInDegrees(int angle) {
+    String output = runCalculator(angle + "\ntan\n3\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
+    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @Test
+  void rejectsTangentOfHalfPiInRadiansAndKeepsThePreviousResult() {
+    String output = runCalculator("pi\n/\n2\n1\nmode\ntan\n1\n+\n1\n3\n");
+
+    List<String> results = resultsIn(output);
+    assertEquals(2, results.size());
+    assertEquals(Math.PI / 2, Double.parseDouble(results.get(0)), TOLERANCE);
+    assertEquals(Math.PI / 2 + 1, Double.parseDouble(results.get(1)), TOLERANCE);
+    assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
+    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: " + Math.PI / 2));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+  }
+
+  @Test
+  void keepsThePreviousResultAfterAFailedTangentInDegrees() {
+    String output = runCalculator("45\n*\n2\n1\ntan\n1\n+\n1\n3\n");
+
+    assertEquals(List.of("90", "91"), resultsIn(output));
+    assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: 90"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+  }
+
+  @Test
+  void calculatesTangentWhileSwitchingBetweenRadiansAndDegrees() {
+    String output = runCalculator("pi\n/\n4\n1\nmode\ntan\n2\n45\nmode\ntan\n3\n");
+
+    List<String> results = resultsIn(output);
+    assertEquals(3, results.size());
+    assertEquals(Math.PI / 4, Double.parseDouble(results.get(0)), TOLERANCE);
+    assertEquals(1, Double.parseDouble(results.get(1)), TOLERANCE);
+    assertEquals(1, Double.parseDouble(results.get(2)), TOLERANCE);
+    assertEquals(1, occurrencesOf(output, "Aktueller Winkelmodus: RAD"));
+    assertEquals(2, occurrencesOf(output, "Aktueller Winkelmodus: DEG"));
+    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {90, 270, -90})
+  void acceptsRepresentableDegreeAnglesNextToTangentSingularities(int singularity) {
+    for (double angle : new double[] {Math.nextDown((double) singularity), Math.nextUp((double) singularity)}) {
+      String output = runCalculator(angle + "\ntan\n3\n");
+
+      assertEquals(1, resultsIn(output).size());
+      assertEquals(Math.tan(Math.toRadians(angle)), Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+      assertFalse(output.contains("Fehler:"));
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"NaN", "Infinity", "-Infinity"})
+  void rejectsNonFiniteTangentAngles(String angle) {
+    String output = runCalculator(angle + "\ntan\n3\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Fehler: Operanden müssen endliche Zahlen sein"));
+    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+  }
+
   private static String runCalculator(String input) {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     try (Scanner scanner = new Scanner(input).useLocale(Locale.US);

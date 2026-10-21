@@ -79,6 +79,36 @@ class CalculatorEngineTest {
     assertEquals(-1, engine.cos(Math.PI), TOLERANCE);
   }
 
+  @Test
+  void calculatesTangentOfZero() {
+    assertEquals(0, engine.tan(0), TOLERANCE);
+  }
+
+  @Test
+  void calculatesTangentOfQuarterPiInRadians() {
+    assertEquals(1, engine.tan(Math.PI / 4), TOLERANCE);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 3, 5, 11, -1, -3})
+  void rejectsUsualTangentSingularities(int oddMultiple) {
+    double angle = oddMultiple * Math.PI / 2;
+
+    ArithmeticException exception = assertThrows(ArithmeticException.class, () -> engine.tan(angle));
+    assertEquals("Tangens ist für diesen Winkel nicht definiert.", exception.getMessage());
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 3, -1, -3})
+  void acceptsRepresentableAnglesNextToTangentSingularities(int oddMultiple) {
+    double singularity = oddMultiple * Math.PI / 2;
+    double below = Math.nextDown(singularity);
+    double above = Math.nextUp(singularity);
+
+    assertEquals(Math.tan(below), engine.tan(below), TOLERANCE);
+    assertEquals(Math.tan(above), engine.tan(above), TOLERANCE);
+  }
+
   @ParameterizedTest
   @CsvSource({"2, 3, 8", "-2, 3, -8", "5, 0, 1", "2, -2, 0.25", "9, 0.5, 3", "0, 0, 1"})
   void calculatesPowers(double base, double exponent, double expected) {
@@ -127,6 +157,7 @@ class CalculatorEngineTest {
     assertThrows(IllegalArgumentException.class, () -> engine.abs(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.sin(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.cos(operand));
+    assertThrows(IllegalArgumentException.class, () -> engine.tan(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.power(operand, 1));
     assertThrows(IllegalArgumentException.class, () -> engine.power(1, operand));
   }
