@@ -134,6 +134,31 @@ class CalculatorEngineTest {
   }
 
   @ParameterizedTest
+  @CsvSource({"0, 1", "-0.0, 1", "1, 1", "2, 2", "4, 24", "5, 120", "10, 3628800", "20, 2432902008176640000"})
+  void calculatesFactorials(double number, long expected) {
+    assertEquals((double) expected, engine.factorial(number));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {-1, -5, -0.5})
+  void rejectsNegativeFactorialOperands(double number) {
+    assertThrows(ArithmeticException.class, () -> engine.factorial(number));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {0.5, 1.5, 19.5, 20.5})
+  void rejectsFractionalFactorialOperands(double number) {
+    assertThrows(ArithmeticException.class, () -> engine.factorial(number));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {21, 100, Double.MAX_VALUE})
+  void rejectsFactorialOperandsGreaterThanTwenty(double number) {
+    ArithmeticException exception = assertThrows(ArithmeticException.class, () -> engine.factorial(number));
+    assertEquals("Für die Fakultät sind nur Werte von 0 bis 20 erlaubt.", exception.getMessage());
+  }
+
+  @ParameterizedTest
   @CsvSource({"2, 3, 8", "-2, 3, -8", "5, 0, 1", "2, -2, 0.25", "9, 0.5, 3", "0, 0, 1"})
   void calculatesPowers(double base, double exponent, double expected) {
     assertEquals(expected, engine.power(base, exponent), TOLERANCE);
@@ -184,6 +209,7 @@ class CalculatorEngineTest {
     assertThrows(IllegalArgumentException.class, () -> engine.tan(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.log(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.ln(operand));
+    assertThrows(IllegalArgumentException.class, () -> engine.factorial(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.power(operand, 1));
     assertThrows(IllegalArgumentException.class, () -> engine.power(1, operand));
   }

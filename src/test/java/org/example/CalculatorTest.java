@@ -542,6 +542,59 @@ class CalculatorTest {
     assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
   }
 
+  @ParameterizedTest
+  @CsvSource({"0, 1", "5, 120", "20, 2432902008176640000"})
+  void calculatesFactorialsAsUnaryOperationsInBothAngleModes(int number, long expected) {
+    for (String modeCommand : List.of("", "mode\n")) {
+      String output = runCalculator(number + "\n" + modeCommand + "factorial\n3\n");
+
+      assertEquals(List.of(Long.toString(expected)), resultsIn(output));
+      assertTrue(output.contains("factorial  Fakultät"));
+      assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+      assertEquals(0, occurrencesOf(output, "Gib den Exponent ein: "));
+      if (!modeCommand.isEmpty()) {
+        assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "-1, Die Fakultät ist nur für nichtnegative ganze Zahlen definiert.",
+      "2.5, Die Fakultät ist nur für nichtnegative ganze Zahlen definiert.",
+      "21, Für die Fakultät sind nur Werte von 0 bis 20 erlaubt."
+  })
+  void reportsInvalidFactorialOperands(String number, String expectedMessage) {
+    String output = runCalculator(number + "\nfactorial\n3\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Fehler: " + expectedMessage));
+    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @Test
+  void continuesWithAFactorialResult() {
+    String output = runCalculator("2\n+\n3\n1\nfactorial\n1\n/\n2\n3\n");
+
+    assertEquals(List.of("5", "120", "60"), resultsIn(output));
+    assertTrue(output.contains("Aktuelles Ergebnis: 120"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(2, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"-1, 0", "2.5, 3.5", "21, 22"})
+  void keepsThePreviousResultAfterAFailedFactorial(String number, String expectedFinalResult) {
+    String output = runCalculator(number + "\n+\n0\n1\nfactorial\n1\n+\n1\n3\n");
+
+    assertEquals(List.of(number, expectedFinalResult), resultsIn(output));
+    assertTrue(output.contains("Fehler:"));
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: " + number));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(2, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
   private static String runCalculator(String input) {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     try (Scanner scanner = new Scanner(input).useLocale(Locale.US);

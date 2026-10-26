@@ -111,6 +111,11 @@ public class Calculator {
             output.print("Du hast dich für den natürlichen Logarithmus entschieden." + " Das Ergebnis ist: ");
             break;
 
+          case "factorial":
+            result = engine.factorial(number1);
+            output.print("Du hast dich für die Fakultät entschieden." + " Das Ergebnis ist: ");
+            break;
+
           case "power":
             result = engine.power(number1, exponent);
             output.print("Du hast dich für die Potenz entschieden." + " Das Ergebnis ist: ");
@@ -160,6 +165,7 @@ public class Calculator {
     output.println("log    Dekadischer Logarithmus (Basis 10)");
     output.println("ln     Natürlicher Logarithmus (Basis e)");
     output.println("power  Potenzberechnung");
+    output.println("factorial  Fakultät (ganze Zahlen von 0 bis 20)");
     output.println("mode   Zwischen DEG (Grad) und RAD (Radiant) wechseln; Standard ist DEG");
     output.println();
     output.println("Folge einfach den Anweisungen und gib die");
@@ -205,10 +211,10 @@ public class Calculator {
     do {
       output.print(inputText);
       operator = scanner.next();
-      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("cos") && !operator.equals("tan") && !operator.equals("log") && !operator.equals("ln") && !operator.equals("power") && !operator.equals("mode")) {
+      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("cos") && !operator.equals("tan") && !operator.equals("log") && !operator.equals("ln") && !operator.equals("factorial") && !operator.equals("power") && !operator.equals("mode")) {
         output.println("Bitte gib einen der erlaubten Operatoren ein!");
       }
-    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("cos") && !operator.equals("tan") && !operator.equals("log") && !operator.equals("ln") && !operator.equals("power") && !operator.equals("mode"));
+    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("cos") && !operator.equals("tan") && !operator.equals("log") && !operator.equals("ln") && !operator.equals("factorial") && !operator.equals("power") && !operator.equals("mode"));
 
     return operator;
 

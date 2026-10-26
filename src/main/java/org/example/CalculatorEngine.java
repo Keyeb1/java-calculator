@@ -89,6 +89,23 @@ public class CalculatorEngine {
     return checkedResult(Math.log(number));
   }
 
+  /** Berechnet die Fakultät nichtnegativer ganzer Zahlen von 0 bis 20. */
+  public double factorial(double number) {
+    validateOperands(number);
+    if (number < 0 || number != Math.floor(number)) {
+      throw new ArithmeticException("Die Fakultät ist nur für nichtnegative ganze Zahlen definiert.");
+    }
+    if (number > 20) {
+      throw new ArithmeticException("Für die Fakultät sind nur Werte von 0 bis 20 erlaubt.");
+    }
+
+    long result = 1;
+    for (long factor = 2; factor <= (long) number; factor++) {
+      result = Math.multiplyExact(result, factor);
+    }
+    return checkedResult((double) result);
+  }
+
   public double power(double base, double exponent) {
     validateOperands(base, exponent);
     return checkedResult(Math.pow(base, exponent));
