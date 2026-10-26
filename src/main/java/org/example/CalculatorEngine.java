@@ -71,6 +71,24 @@ public class CalculatorEngine {
     return checkedResult(Math.tan(angle));
   }
 
+  /** Berechnet den dekadischen Logarithmus zur Basis 10. */
+  public double log(double number) {
+    validateOperands(number);
+    if (number <= 0) {
+      throw new ArithmeticException("Der dekadische Logarithmus ist nur für Zahlen größer als null definiert.");
+    }
+    return checkedResult(Math.log10(number));
+  }
+
+  /** Berechnet den natürlichen Logarithmus zur Basis e. */
+  public double ln(double number) {
+    validateOperands(number);
+    if (number <= 0) {
+      throw new ArithmeticException("Der natürliche Logarithmus ist nur für Zahlen größer als null definiert.");
+    }
+    return checkedResult(Math.log(number));
+  }
+
   public double power(double base, double exponent) {
     validateOperands(base, exponent);
     return checkedResult(Math.pow(base, exponent));

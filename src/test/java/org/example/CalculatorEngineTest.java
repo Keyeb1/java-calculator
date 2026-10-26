@@ -110,6 +110,30 @@ class CalculatorEngineTest {
   }
 
   @ParameterizedTest
+  @CsvSource({"1, 0", "10, 1", "100, 2", "1000, 3", "0.1, -1", "0.01, -2"})
+  void calculatesDecimalLogarithms(double number, double expected) {
+    assertEquals(expected, engine.log(number), TOLERANCE);
+  }
+
+  @ParameterizedTest
+  @CsvSource({"1, 0", "0.5, -0.6931471805599453"})
+  void calculatesNaturalLogarithms(double number, double expected) {
+    assertEquals(expected, engine.ln(number), TOLERANCE);
+  }
+
+  @Test
+  void calculatesNaturalLogarithmOfE() {
+    assertEquals(1, engine.ln(Math.E), TOLERANCE);
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {0.0, -0.0, -1, -10})
+  void rejectsNonPositiveLogarithmOperands(double number) {
+    assertThrows(ArithmeticException.class, () -> engine.log(number));
+    assertThrows(ArithmeticException.class, () -> engine.ln(number));
+  }
+
+  @ParameterizedTest
   @CsvSource({"2, 3, 8", "-2, 3, -8", "5, 0, 1", "2, -2, 0.25", "9, 0.5, 3", "0, 0, 1"})
   void calculatesPowers(double base, double exponent, double expected) {
     assertEquals(expected, engine.power(base, exponent), TOLERANCE);
@@ -158,6 +182,8 @@ class CalculatorEngineTest {
     assertThrows(IllegalArgumentException.class, () -> engine.sin(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.cos(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.tan(operand));
+    assertThrows(IllegalArgumentException.class, () -> engine.log(operand));
+    assertThrows(IllegalArgumentException.class, () -> engine.ln(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.power(operand, 1));
     assertThrows(IllegalArgumentException.class, () -> engine.power(1, operand));
   }

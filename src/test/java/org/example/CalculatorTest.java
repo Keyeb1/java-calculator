@@ -488,6 +488,60 @@ class CalculatorTest {
     assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
   }
 
+  @ParameterizedTest
+  @CsvSource({"log, 100, 2", "ln, e, 1", "log, 0.1, -1", "ln, 0.5, -0.6931471805599453"})
+  void calculatesLogarithmsAsUnaryOperationsInBothAngleModes(String operator, String number, double expected) {
+    for (String modeCommand : List.of("", "mode\n")) {
+      String output = runCalculator(number + "\n" + modeCommand + operator + "\n3\n");
+
+      assertEquals(1, resultsIn(output).size());
+      assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+      assertTrue(output.contains("log    Dekadischer Logarithmus (Basis 10)"));
+      assertTrue(output.contains("ln     Natürlicher Logarithmus (Basis e)"));
+      assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+      assertEquals(0, occurrencesOf(output, "Gib den Exponent ein: "));
+      if (!modeCommand.isEmpty()) {
+        assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"log, 0", "ln, 0", "log, -1", "ln, -1"})
+  void reportsNonPositiveLogarithmInputs(String operator, String number) {
+    String output = runCalculator(number + "\n" + operator + "\n3\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Fehler:"));
+    assertTrue(output.contains("Logarithmus ist nur für Zahlen größer als null definiert."));
+    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"log", "ln"})
+  void keepsThePreviousResultAfterAFailedLogarithm(String operator) {
+    String output = runCalculator("2\n-\n3\n1\n" + operator + "\n1\nabs\n3\n");
+
+    assertEquals(List.of("-1", "1"), resultsIn(output));
+    assertTrue(output.contains("Fehler:"));
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: -1"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @Test
+  void continuesFromADecimalLogarithmWithANaturalLogarithm() {
+    String output = runCalculator("1000\nlog\n1\nln\n3\n");
+
+    List<String> results = resultsIn(output);
+    assertEquals(2, results.size());
+    assertEquals(3, Double.parseDouble(results.get(0)), TOLERANCE);
+    assertEquals(1.0986122886681098, Double.parseDouble(results.get(1)), TOLERANCE);
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
   private static String runCalculator(String input) {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     try (Scanner scanner = new Scanner(input).useLocale(Locale.US);
