@@ -1,8 +1,15 @@
 package org.example;
 import java.io.PrintStream;
 import java.util.Scanner;
+import java.util.Set;
 
 public class Calculator {
+  private static final Set<String> VALID_OPERATORS = Set.of(
+      "+", "-", "*", "/", "sqrt", "root",
+      "abs", "sin", "cos", "tan",
+      "log", "ln", "factorial", "power", "mode"
+  );
+
   static void main(String[] args) {
     try (Scanner scanner = new Scanner(System.in)) {
       run(scanner, System.out);
@@ -241,19 +248,15 @@ public class Calculator {
 
 
   private static String getValidOperator(Scanner scanner, PrintStream output, String inputText) {
-
-    String operator;
-    do {
+    while (true) {
       output.print(inputText);
       requireInput(scanner);
-      operator = scanner.next();
-      if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("root") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("cos") && !operator.equals("tan") && !operator.equals("log") && !operator.equals("ln") && !operator.equals("factorial") && !operator.equals("power") && !operator.equals("mode")) {
-        output.println("Bitte gib einen der erlaubten Operatoren ein!");
+      String operator = scanner.next();
+      if (VALID_OPERATORS.contains(operator)) {
+        return operator;
       }
-    } while (!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("root") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("cos") && !operator.equals("tan") && !operator.equals("log") && !operator.equals("ln") && !operator.equals("factorial") && !operator.equals("power") && !operator.equals("mode"));
-
-    return operator;
-
+      output.println("Bitte gib einen der erlaubten Operatoren ein!");
+    }
   }
 
 

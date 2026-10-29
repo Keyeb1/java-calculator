@@ -29,6 +29,36 @@ class CalculatorTest {
     assertEquals(4, 2 + 2);
   }
 
+  @ParameterizedTest
+  @CsvSource({
+      "?, +, 2", "++, -, 2", "unknown, *, 2", "^, /, 2",
+      "SQRT, sqrt, ''", "Root, root, 2", "Abs, abs, ''",
+      "SIN, sin, ''", "Cos, cos, ''", "TAN, tan, ''",
+      "Log, log, ''", "LN, ln, ''", "Factorial, factorial, ''",
+      "POWER, power, 2", "MODE, mode, ''"
+  })
+  void rejectsInvalidOperatorsAndAcceptsEverySupportedOperatorOnRetry(
+      String invalidOperator, String validOperator, String additionalOperand) {
+    String input = "4\n" + invalidOperator + "\n" + validOperator + "\n";
+    if (!additionalOperand.isEmpty()) {
+      input += additionalOperand + "\n";
+    }
+    if (validOperator.equals("mode")) {
+      input += "+\n2\n";
+    }
+    String output = runCalculator(input + "3\n");
+
+    assertEquals(1, occurrencesOf(output, "Bitte gib einen der erlaubten Operatoren ein!"));
+    assertEquals(validOperator.equals("mode") ? 3 : 2, occurrencesOf(output, "Wähle einen Operator aus: "));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(1, resultsIn(output).size());
+    assertFalse(output.contains("Fehler:"));
+    assertFalse(output.contains(EOF_MESSAGE));
+    if (validOperator.equals("mode")) {
+      assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
+    }
+  }
+
   @Test
   void continuesRepeatedlyWithThePreviousResult() {
     String output = runCalculator("""
