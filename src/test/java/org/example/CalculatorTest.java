@@ -411,7 +411,11 @@ class CalculatorTest {
   }
 
   @ParameterizedTest
-  @CsvSource({"0, 0", "45, 1", "180, 0", "-45, -1"})
+  @CsvSource({
+      "0, 0", "30, 0.5773502691896257", "45, 1", "60, 1.7320508075688772",
+      "135, -1", "180, 0", "-30, -0.5773502691896257", "-45, -1",
+      "-60, -1.7320508075688772", "-135, 1"
+  })
   void calculatesTangentInDegreesByDefault(int angle, double expected) {
     String output = runCalculator(angle + "\ntan\n3\n");
 
@@ -422,7 +426,7 @@ class CalculatorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {90, 270, -90, 450, -270})
+  @ValueSource(ints = {90, 270, 990, -90, -270, -990, 450, -450, 1350, -1350})
   void rejectsTangentSingularitiesInDegrees(int angle) {
     String output = runCalculator(angle + "\ntan\n3\n");
 
@@ -446,13 +450,14 @@ class CalculatorTest {
     assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
   }
 
-  @Test
-  void keepsThePreviousResultAfterAFailedTangentInDegrees() {
-    String output = runCalculator("45\n*\n2\n1\ntan\n1\n+\n1\n3\n");
+  @ParameterizedTest
+  @ValueSource(ints = {90, 270, 990, -90, -270, -990})
+  void keepsThePreviousResultAfterAFailedTangentInDegrees(int angle) {
+    String output = runCalculator(angle + "\n+\n0\n1\ntan\n1\n+\n1\n3\n");
 
-    assertEquals(List.of("90", "91"), resultsIn(output));
+    assertEquals(List.of(Integer.toString(angle), Integer.toString(angle + 1)), resultsIn(output));
     assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
-    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: 90"));
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: " + angle));
     assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
   }
 
@@ -472,13 +477,55 @@ class CalculatorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {90, 270, -90})
+  @ValueSource(ints = {90, 270, 990, 1350, 1890, -90, -270, -990, -1350, -1890})
   void acceptsRepresentableDegreeAnglesNextToTangentSingularities(int singularity) {
     for (double angle : new double[] {Math.nextDown((double) singularity), Math.nextUp((double) singularity)}) {
       String output = runCalculator(angle + "\ntan\n3\n");
 
       assertEquals(1, resultsIn(output).size());
-      assertEquals(Math.tan(Math.toRadians(angle)), Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+      // Für diese winzigen Abstände ist cot(delta) = 1/delta bis auf einen
+      // relativen Fehler weit unter der double-Genauigkeit.
+      double expected = 1.0 / Math.toRadians(singularity - angle);
+      assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), Math.abs(expected) * TOLERANCE);
+      assertFalse(output.contains("Fehler:"));
+      assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"89.999999999999999", "90.000000000000001"})
+  void rejectsDegreeInputsAlreadyRoundedToASingularity(String input) {
+    // Die ursprünglichen Dezimalwerte lassen sich nach dem Einlesen als double
+    // nicht mehr von exakt 90 Grad unterscheiden.
+    assertEquals(90.0, Double.parseDouble(input));
+    String output = runCalculator(input + "\ntan\n3\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 3, 11, -1, -3, -11})
+  void keepsTangentSingularityRulesInRadians(int oddMultiple) {
+    double angle = oddMultiple * Math.PI / 2;
+    String output = runCalculator(angle + "\nmode\ntan\n3\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
+    assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 3, 11, -1, -3, -11})
+  void keepsTangentNeighborValuesInRadians(int oddMultiple) {
+    double singularity = oddMultiple * Math.PI / 2;
+    for (double angle : new double[] {Math.nextDown(singularity), Math.nextUp(singularity)}) {
+      String output = runCalculator(angle + "\nmode\ntan\n3\n");
+      double expected = Math.tan(angle);
+
+      assertEquals(1, resultsIn(output).size());
+      assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), 2 * Math.ulp(expected));
+      assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
       assertFalse(output.contains("Fehler:"));
     }
   }

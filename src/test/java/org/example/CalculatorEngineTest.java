@@ -136,7 +136,7 @@ class CalculatorEngineTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {1, 3, 5, 11, -1, -3})
+  @ValueSource(ints = {1, 3, 5, 11, -1, -3, -5, -11})
   void rejectsUsualTangentSingularities(int oddMultiple) {
     double angle = oddMultiple * Math.PI / 2;
 
@@ -145,14 +145,16 @@ class CalculatorEngineTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {1, 3, -1, -3})
+  @ValueSource(ints = {1, 3, 11, -1, -3, -11})
   void acceptsRepresentableAnglesNextToTangentSingularities(int oddMultiple) {
     double singularity = oddMultiple * Math.PI / 2;
     double below = Math.nextDown(singularity);
     double above = Math.nextUp(singularity);
 
-    assertEquals(Math.tan(below), engine.tan(below), TOLERANCE);
-    assertEquals(Math.tan(above), engine.tan(above), TOLERANCE);
+    double expectedBelow = Math.tan(below);
+    double expectedAbove = Math.tan(above);
+    assertEquals(expectedBelow, engine.tan(below), 2 * Math.ulp(expectedBelow));
+    assertEquals(expectedAbove, engine.tan(above), 2 * Math.ulp(expectedAbove));
   }
 
   @ParameterizedTest
