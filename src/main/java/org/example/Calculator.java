@@ -17,138 +17,143 @@ public class Calculator {
     boolean degreeMode = true;
     output.println("Aktueller Winkelmodus: DEG");
 
-    while (true) {
-      double number1 = continueWithResult
-          ? lastResult
-          : getValidNumber(scanner, output, "Gib die erste Zahl ein: ");
+    try {
+      while (true) {
+        double number1 = continueWithResult
+            ? lastResult
+            : getValidNumber(scanner, output, "Gib die erste Zahl ein: ");
 
-      if (continueWithResult) {
-        output.print("Aktuelles Ergebnis: ");
-        printNumber(output, number1);
-      }
-
-      String operator;
-      do {
-        operator = getValidOperator(scanner, output,
-            "Wähle einen Operator aus: ");
-        if (operator.equals("mode")) {
-          degreeMode = !degreeMode;
-          output.println("Aktueller Winkelmodus: " + (degreeMode ? "DEG" : "RAD"));
-        }
-      } while (operator.equals("mode"));
-
-      double number2 = 0.0;
-
-      if (operator.equals("+") || operator.equals("-") || operator.equals("*") || operator.equals("/")) {
-        number2 = getValidNumber(scanner, output, "Gib die zweite Zahl ein: ");
-      }
-
-      double exponent = 0.0;
-
-      if (operator.equals("power")) {
-        exponent = getValidNumber(scanner, output, "Gib den Exponent ein: ");
-      }
-
-      double root = 0.0;
-
-      if (operator.equals("root")) {
-        root = getValidNumber(scanner, output, "Gib den Wurzelexponenten ein: ");
-      }
-
-      try {
-        double result;
-        switch (operator) {
-          case "+":
-            result = engine.add(number1, number2);
-            output.print("Du hast dich für die Addition entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "-":
-            result = engine.subtract(number1, number2);
-            output.print("Du hast dich für die Subtraktion entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "*":
-            result = engine.multiply(number1, number2);
-            output.print("Du hast dich für die Multiplikation entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "/":
-            result = engine.divide(number1, number2);
-            output.print("Du hast dich für die Division entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "sqrt":
-            result = engine.sqrt(number1);
-            output.print("Du hast dich für die Quadratwurzel entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "root":
-            result = engine.nthRoot(number1, root);
-            output.print("Du hast dich für die n-te Wurzel entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "abs":
-            result = engine.abs(number1);
-            output.print("Du hast dich für die Betragsfunktion entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "sin":
-            result = engine.sin(degreeMode ? Math.toRadians(number1) : number1);
-            output.print("Du hast dich für den Sinus entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "cos":
-            result = engine.cos(degreeMode ? Math.toRadians(number1) : number1);
-            output.print("Du hast dich für den Kosinus entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "tan":
-            // Grad-Singularitäten vor der Umrechnung in Radiant prüfen.
-            if (degreeMode && Math.abs(number1 % 180) == 90) {
-              throw new ArithmeticException("Tangens ist für diesen Winkel nicht definiert.");
-            }
-            result = engine.tan(degreeMode ? Math.toRadians(number1) : number1);
-            output.print("Du hast dich für den Tangens entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "log":
-            result = engine.log(number1);
-            output.print("Du hast dich für den dekadischen Logarithmus entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "ln":
-            result = engine.ln(number1);
-            output.print("Du hast dich für den natürlichen Logarithmus entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "factorial":
-            result = engine.factorial(number1);
-            output.print("Du hast dich für die Fakultät entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          case "power":
-            result = engine.power(number1, exponent);
-            output.print("Du hast dich für die Potenz entschieden." + " Das Ergebnis ist: ");
-            break;
-
-          default:
-            throw new IllegalArgumentException("Unbekannter Operator: " + operator);
+        if (continueWithResult) {
+          output.print("Aktuelles Ergebnis: ");
+          printNumber(output, number1);
         }
 
-        lastResult = result;
-        printNumber(output, result);
-      } catch (IllegalArgumentException | ArithmeticException exception) {
-        output.println("Fehler: " + exception.getMessage());
+        String operator;
+        do {
+          operator = getValidOperator(scanner, output,
+              "Wähle einen Operator aus: ");
+          if (operator.equals("mode")) {
+            degreeMode = !degreeMode;
+            output.println("Aktueller Winkelmodus: " + (degreeMode ? "DEG" : "RAD"));
+          }
+        } while (operator.equals("mode"));
+
+        double number2 = 0.0;
+
+        if (operator.equals("+") || operator.equals("-") || operator.equals("*") || operator.equals("/")) {
+          number2 = getValidNumber(scanner, output, "Gib die zweite Zahl ein: ");
+        }
+
+        double exponent = 0.0;
+
+        if (operator.equals("power")) {
+          exponent = getValidNumber(scanner, output, "Gib den Exponent ein: ");
+        }
+
+        double root = 0.0;
+
+        if (operator.equals("root")) {
+          root = getValidNumber(scanner, output, "Gib den Wurzelexponenten ein: ");
+        }
+
+        try {
+          double result;
+          switch (operator) {
+            case "+":
+              result = engine.add(number1, number2);
+              output.print("Du hast dich für die Addition entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "-":
+              result = engine.subtract(number1, number2);
+              output.print("Du hast dich für die Subtraktion entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "*":
+              result = engine.multiply(number1, number2);
+              output.print("Du hast dich für die Multiplikation entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "/":
+              result = engine.divide(number1, number2);
+              output.print("Du hast dich für die Division entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "sqrt":
+              result = engine.sqrt(number1);
+              output.print("Du hast dich für die Quadratwurzel entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "root":
+              result = engine.nthRoot(number1, root);
+              output.print("Du hast dich für die n-te Wurzel entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "abs":
+              result = engine.abs(number1);
+              output.print("Du hast dich für die Betragsfunktion entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "sin":
+              result = engine.sin(degreeMode ? Math.toRadians(number1) : number1);
+              output.print("Du hast dich für den Sinus entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "cos":
+              result = engine.cos(degreeMode ? Math.toRadians(number1) : number1);
+              output.print("Du hast dich für den Kosinus entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "tan":
+              // Grad-Singularitäten vor der Umrechnung in Radiant prüfen.
+              if (degreeMode && Math.abs(number1 % 180) == 90) {
+                throw new ArithmeticException("Tangens ist für diesen Winkel nicht definiert.");
+              }
+              result = engine.tan(degreeMode ? Math.toRadians(number1) : number1);
+              output.print("Du hast dich für den Tangens entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "log":
+              result = engine.log(number1);
+              output.print("Du hast dich für den dekadischen Logarithmus entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "ln":
+              result = engine.ln(number1);
+              output.print("Du hast dich für den natürlichen Logarithmus entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "factorial":
+              result = engine.factorial(number1);
+              output.print("Du hast dich für die Fakultät entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            case "power":
+              result = engine.power(number1, exponent);
+              output.print("Du hast dich für die Potenz entschieden." + " Das Ergebnis ist: ");
+              break;
+
+            default:
+              throw new IllegalArgumentException("Unbekannter Operator: " + operator);
+          }
+
+          lastResult = result;
+          printNumber(output, result);
+        } catch (IllegalArgumentException | ArithmeticException exception) {
+          output.println("Fehler: " + exception.getMessage());
+        }
+        String choice = getValidNextAction(scanner, output, lastResult != null);
+        if (choice.equals("3")) {
+          return;
+        }
+        continueWithResult = choice.equals("1");
+        if (choice.equals("2")) {
+          lastResult = null;
+        }
       }
-      String choice = getValidNextAction(scanner, output, lastResult != null);
-      if (choice.equals("3")) {
-        return;
-      }
-      continueWithResult = choice.equals("1");
-      if (choice.equals("2")) {
-        lastResult = null;
-      }
+    } catch (EndOfInputException exception) {
+      output.println();
+      output.println("Eingabe beendet. Taschenrechner wird beendet.");
     }
   }
 
@@ -196,6 +201,7 @@ public class Calculator {
     double number = 0;
     do {
       output.print(inputText);
+      requireInput(scanner);
       if(scanner.hasNextDouble()) {
         number = scanner.nextDouble();
         validNumber = true;
@@ -222,6 +228,7 @@ public class Calculator {
     String operator;
     do {
       output.print(inputText);
+      requireInput(scanner);
       operator = scanner.next();
       if(!operator.equals("+") && !operator.equals("-") && !operator.equals("*") && !operator.equals("/") && !operator.equals("sqrt") && !operator.equals("root") && !operator.equals("abs") && !operator.equals("sin") && !operator.equals("cos") && !operator.equals("tan") && !operator.equals("log") && !operator.equals("ln") && !operator.equals("factorial") && !operator.equals("power") && !operator.equals("mode")) {
         output.println("Bitte gib einen der erlaubten Operatoren ein!");
@@ -244,12 +251,23 @@ public class Calculator {
       output.println("3. Taschenrechner beenden");
       output.print("Deine Auswahl: ");
 
+      requireInput(scanner);
       String choice = scanner.next();
       if (choice.equals("2") || choice.equals("3") || (hasResult && choice.equals("1"))) {
         return choice;
       }
       output.println(hasResult ? "Bitte wähle 1, 2 oder 3." : "Bitte wähle 2 oder 3.");
     }
+  }
+
+  private static void requireInput(Scanner scanner) {
+    if (!scanner.hasNext()) {
+      throw new EndOfInputException();
+    }
+  }
+
+  /** Internes Signal für ein kontrolliertes Ende der Konsoleneingabe. */
+  private static final class EndOfInputException extends RuntimeException {
   }
 
 }

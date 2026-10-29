@@ -13,13 +13,16 @@ import java.util.Locale;
 import java.util.Scanner;
 import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CalculatorTest {
 
   private static final double TOLERANCE = 1e-12;
+  private static final String EOF_MESSAGE = "Eingabe beendet. Taschenrechner wird beendet.";
 
   @Test
   void additionWorks() {
@@ -93,6 +96,7 @@ class CalculatorTest {
     assertEquals(List.of("5"), resultsIn(output));
     assertEquals(1, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
     assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertFalse(output.contains(EOF_MESSAGE));
   }
 
   @Test
@@ -150,6 +154,7 @@ class CalculatorTest {
     assertTrue(resultsIn(output).isEmpty());
     assertTrue(output.contains("Fehler: Die Quadratwurzel einer negativen Zahl ist nicht erlaubt."));
     assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertFalse(output.contains(EOF_MESSAGE));
   }
 
   @Test
@@ -684,6 +689,128 @@ class CalculatorTest {
     assertTrue(output.contains("Fehler: Die Quadratwurzel einer negativen Zahl ist nicht erlaubt."));
     assertEquals(0, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
     assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"", " \n\t "})
+  void exitsAtEndOfInputBeforeTheFirstNumber(String input) {
+    String output = runCalculatorUntilEndOfInput(input);
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
+    assertFalse(output.contains("Was möchtest du als Nächstes tun?"));
+  }
+
+  @Test
+  void exitsAtEndOfInputWhenANewFirstNumberIsRequested() {
+    String output = runCalculatorUntilEndOfInput("2\n+\n3\n2\n");
+
+    assertEquals(List.of("5"), resultsIn(output));
+    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertFalse(output.contains("Aktuelles Ergebnis: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"+", "-", "*", "/"})
+  void exitsAtEndOfInputAfterSelectingABinaryOperator(String operator) {
+    String output = runCalculatorUntilEndOfInput("5\n" + operator + "\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+    assertFalse(output.contains("Was möchtest du als Nächstes tun?"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"5", "5\nmode\n"})
+  void exitsAtEndOfInputDuringOperatorSelection(String input) {
+    String output = runCalculatorUntilEndOfInput(input);
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Wähle einen Operator aus: "));
+    assertFalse(output.contains("Bitte gib einen der erlaubten Operatoren ein!"));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"power, Gib den Exponent ein:", "root, Gib den Wurzelexponenten ein:"})
+  void exitsAtEndOfInputWhenAnExponentIsRequested(String operator, String prompt) {
+    String output = runCalculatorUntilEndOfInput("27\n" + operator + "\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains(prompt));
+    assertFalse(output.contains("Gib die zweite Zahl ein: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"2\n+\n3", "2\n+\n3\n"})
+  void exitsAtEndOfInputAfterASuccessfulCalculation(String input) {
+    String output = runCalculatorUntilEndOfInput(input);
+
+    assertEquals(List.of("5"), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Deine Auswahl: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"abc\n", "5\n+\nabc\n", "5\npower\nabc\n", "5\nroot\nabc\n"})
+  void exitsAtEndOfInputAfterAnInvalidNumber(String input) {
+    String output = runCalculatorUntilEndOfInput(input);
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertEquals(1, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
+  }
+
+  @Test
+  void exitsAtEndOfInputAfterAnInvalidOperator() {
+    String output = runCalculatorUntilEndOfInput("5\n?\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertEquals(1, occurrencesOf(output, "Bitte gib einen der erlaubten Operatoren ein!"));
+    assertEquals(2, occurrencesOf(output, "Wähle einen Operator aus: "));
+  }
+
+  @Test
+  void exitsAtEndOfInputAfterAnInvalidMenuChoice() {
+    String output = runCalculatorUntilEndOfInput("2\n+\n3\nabc\n");
+
+    assertEquals(List.of("5"), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Bitte wähle 1, 2 oder 3."));
+    assertEquals(2, occurrencesOf(output, "Deine Auswahl: "));
+  }
+
+  @Test
+  void exitsAtEndOfInputAfterAMathematicalError() {
+    String output = runCalculatorUntilEndOfInput("5\n/\n0\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Fehler: Division durch null ist nicht erlaubt."));
+    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+  }
+
+  @Test
+  void exitsAtEndOfInputWhenContinuingWithThePreviousResult() {
+    String output = runCalculatorUntilEndOfInput("2\n+\n3\n1\n");
+
+    assertEquals(List.of("5"), resultsIn(output));
+    assertTrue(output.contains("Aktuelles Ergebnis: 5"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+  }
+
+  @Test
+  void doesNotSwallowUnexpectedScannerFailures() {
+    Scanner scanner = new Scanner("");
+    scanner.close();
+    try (PrintStream output = new PrintStream(new ByteArrayOutputStream())) {
+      assertThrows(IllegalStateException.class, () -> Calculator.run(scanner, output));
+    }
+  }
+
+  private static String runCalculatorUntilEndOfInput(String input) {
+    String output = assertDoesNotThrow(() -> runCalculator(input));
+
+    assertEquals(1, occurrencesOf(output, EOF_MESSAGE));
+    assertTrue(output.endsWith(EOF_MESSAGE + System.lineSeparator()));
+    assertFalse(output.contains("Exception"));
+    return output;
   }
 
   private static String runCalculator(String input) {
