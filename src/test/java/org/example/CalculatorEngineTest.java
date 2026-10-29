@@ -44,6 +44,52 @@ class CalculatorEngineTest {
   }
 
   @ParameterizedTest
+  @CsvSource({
+      "25, 2, 5", "27, 3, 3", "16, 4, 2", "32, 5, 2",
+      "-27, 3, -3", "-32, 5, -2", "0, 3, 0", "0.125, 3, 0.5",
+      "81, 1, 81", "-81, 1, -81"
+  })
+  void calculatesNthRoots(double number, double root, double expected) {
+    assertEquals(expected, engine.nthRoot(number, root), TOLERANCE);
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {0, -0.0, -3, 2.5, 0.5, Double.MIN_VALUE, 2.9999999999999996, 3.0000000000000004})
+  void rejectsNonPositiveOrFractionalRootExponents(double root) {
+    ArithmeticException exception = assertThrows(ArithmeticException.class, () -> engine.nthRoot(27, root));
+    assertEquals("Der Wurzelexponent muss eine positive ganze Zahl sein.", exception.getMessage());
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {2, 4, 2147483648d, 9007199254740994d, 9223372036854775808d, Double.MAX_VALUE})
+  void rejectsEvenRootsOfNegativeNumbers(double root) {
+    ArithmeticException exception = assertThrows(ArithmeticException.class, () -> engine.nthRoot(-16, root));
+    assertEquals("Eine gerade Wurzel aus einer negativen Zahl ist nicht erlaubt.", exception.getMessage());
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {2147483649d, 9007199254740991d})
+  void acceptsLargeOddRootsOfNegativeNumbers(double root) {
+    assertEquals(-1, engine.nthRoot(-1, root), TOLERANCE);
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {9007199254740992d, 9223372036854775808d, Double.MAX_VALUE})
+  void acceptsVeryLargeRootExponentsWithoutIntegerConversion(double root) {
+    assertEquals(1, engine.nthRoot(16, root), TOLERANCE);
+    assertEquals(0, engine.nthRoot(0, root), TOLERANCE);
+  }
+
+  @Test
+  void usesTheRepresentedParityWhenAnOddRootExponentIsRoundedAtTwoToThe53() {
+    // 2^53 + 1 ist als double nicht darstellbar und wird bereits beim Einlesen gerade.
+    double roundedRoot = Double.parseDouble("9007199254740993");
+
+    assertEquals(9007199254740992d, roundedRoot);
+    assertThrows(ArithmeticException.class, () -> engine.nthRoot(-1, roundedRoot));
+  }
+
+  @ParameterizedTest
   @CsvSource({"5, 5", "-5, 5", "0, 0", "-0.0, 0.0", "2.75, 2.75", "-2.75, 2.75"})
   void calculatesAbsoluteValues(double number, double expected) {
     assertEquals(expected, engine.abs(number));
@@ -203,6 +249,8 @@ class CalculatorEngineTest {
     assertThrows(IllegalArgumentException.class, () -> engine.divide(operand, 1));
     assertThrows(IllegalArgumentException.class, () -> engine.divide(1, operand));
     assertThrows(IllegalArgumentException.class, () -> engine.sqrt(operand));
+    assertThrows(IllegalArgumentException.class, () -> engine.nthRoot(operand, 3));
+    assertThrows(IllegalArgumentException.class, () -> engine.nthRoot(27, operand));
     assertThrows(IllegalArgumentException.class, () -> engine.abs(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.sin(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.cos(operand));

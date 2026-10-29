@@ -38,6 +38,27 @@ public class CalculatorEngine {
     return checkedResult(Math.sqrt(number));
   }
 
+  /**
+   * Berechnet die reelle n-te Wurzel für positive ganze Wurzelexponenten.
+   * Die Parität wird ohne Ganzzahlumwandlung am übergebenen double geprüft.
+   * Ab 2^53 sind keine ungeraden ganzen Zahlen mehr darstellbar; bereits
+   * bei der Eingabe verlorene Stellen können hier nicht rekonstruiert werden.
+   * Bei sehr großen Exponenten kann das Ergebnis auf 1 bzw. -1 gerundet werden.
+   */
+  public double nthRoot(double number, double root) {
+    validateOperands(number, root);
+    if (root <= 0 || root != Math.floor(root)) {
+      throw new ArithmeticException("Der Wurzelexponent muss eine positive ganze Zahl sein.");
+    }
+    if (number < 0 && root % 2 == 0) {
+      throw new ArithmeticException("Eine gerade Wurzel aus einer negativen Zahl ist nicht erlaubt.");
+    }
+    double result = number < 0
+        ? -Math.pow(-number, 1.0 / root)
+        : Math.pow(number, 1.0 / root);
+    return checkedResult(result);
+  }
+
   public double abs(double number) {
     validateOperands(number);
     return checkedResult(Math.abs(number));

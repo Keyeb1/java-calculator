@@ -595,6 +595,97 @@ class CalculatorTest {
     assertEquals(2, occurrencesOf(output, "Gib die zweite Zahl ein: "));
   }
 
+  @ParameterizedTest
+  @CsvSource({"27, 3, 3", "25, 2, 5", "-27, 3, -3", "-32, 5, -2", "0, 3, 0"})
+  void calculatesNthRootsInBothAngleModes(String number, String root, double expected) {
+    for (String modeCommand : List.of("", "mode\n")) {
+      String output = runCalculator(number + "\n" + modeCommand + "root\n" + root + "\n3\n");
+
+      assertEquals(1, resultsIn(output).size());
+      assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+      assertTrue(output.contains("root   n-te Wurzel"));
+      assertEquals(1, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
+      assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+      assertEquals(0, occurrencesOf(output, "Gib den Exponent ein: "));
+      if (!modeCommand.isEmpty()) {
+        assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "-16, 4, Eine gerade Wurzel aus einer negativen Zahl ist nicht erlaubt.",
+      "27, 0, Der Wurzelexponent muss eine positive ganze Zahl sein.",
+      "27, -3, Der Wurzelexponent muss eine positive ganze Zahl sein.",
+      "27, 2.5, Der Wurzelexponent muss eine positive ganze Zahl sein."
+  })
+  void reportsInvalidNthRootInputsAndAllowsANewCalculation(String number, String root, String expectedMessage) {
+    String output = runCalculator(number + "\nroot\n" + root + "\n2\n25\nsqrt\n3\n");
+
+    assertEquals(List.of("5"), resultsIn(output));
+    assertTrue(output.contains("Fehler: " + expectedMessage));
+    assertEquals(1, occurrencesOf(output, "1. Mit dem Ergebnis weiterrechnen"));
+    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(1, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"NaN, 3", "Infinity, 3", "-Infinity, 3", "27, NaN", "27, Infinity", "27, -Infinity"})
+  void rejectsNonFiniteNthRootInputs(String number, String root) {
+    String output = runCalculator(number + "\nroot\n" + root + "\n3\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Fehler: Operanden müssen endliche Zahlen sein"));
+    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+  }
+
+  @Test
+  void retriesANonNumericRootExponent() {
+    String output = runCalculator("27\nroot\nthree\n3\n3\n");
+
+    assertEquals(1, resultsIn(output).size());
+    assertEquals(3, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertEquals(1, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
+    assertEquals(2, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
+  }
+
+  @Test
+  void continuesWithNthRootResultsAndUsesThePreviousResultAsARadicand() {
+    String output = runCalculator("16\nroot\n4\n1\npower\n4\n1\nroot\n2\n1\n+\n1\n3\n");
+
+    assertEquals(List.of("2", "16", "4", "5"), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(2, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
+    assertTrue(output.contains("Aktuelles Ergebnis: 16"));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"-16, 4, 1, -16", "27, 0, 3, 3", "27, -3, 3, 3", "27, 2.5, 3, 3"})
+  void keepsThePreviousResultAfterAFailedNthRoot(String number, String invalidRoot,
+                                                String validRoot, double expected) {
+    String output = runCalculator(number + "\n+\n0\n1\nroot\n" + invalidRoot
+        + "\n1\nroot\n" + validRoot + "\n3\n");
+
+    List<String> results = resultsIn(output);
+    assertEquals(2, results.size());
+    assertEquals(number, results.getFirst());
+    assertEquals(expected, Double.parseDouble(results.get(1)), TOLERANCE);
+    assertTrue(output.contains("Fehler:"));
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: " + number));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+  }
+
+  @Test
+  void keepsSquareRootUnaryAndRejectsNegativeSquareRootInputs() {
+    String output = runCalculator("25\nsqrt\n2\n-16\nsqrt\n3\n");
+
+    assertEquals(List.of("5"), resultsIn(output));
+    assertTrue(output.contains("Fehler: Die Quadratwurzel einer negativen Zahl ist nicht erlaubt."));
+    assertEquals(0, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
+    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+  }
+
   private static String runCalculator(String input) {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     try (Scanner scanner = new Scanner(input).useLocale(Locale.US);
