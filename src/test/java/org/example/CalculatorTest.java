@@ -31,14 +31,24 @@ class CalculatorTest {
 
   @ParameterizedTest
   @CsvSource({
-      "?, +, 2", "++, -, 2", "unknown, *, 2", "^, /, 2",
-      "SQRT, sqrt, ''", "Root, root, 2", "Abs, abs, ''",
-      "SIN, sin, ''", "Cos, cos, ''", "TAN, tan, ''",
-      "Log, log, ''", "LN, ln, ''", "Factorial, factorial, ''",
-      "POWER, power, 2", "MODE, mode, ''"
+      "?, +, 2, Du hast dich für die Addition entschieden.",
+      "++, -, 2, Du hast dich für die Subtraktion entschieden.",
+      "unknown, *, 2, Du hast dich für die Multiplikation entschieden.",
+      "^, /, 2, Du hast dich für die Division entschieden.",
+      "SQRT, sqrt, '', Du hast dich für die Quadratwurzel entschieden.",
+      "Root, root, 2, Du hast dich für die n-te Wurzel entschieden.",
+      "Abs, abs, '', Du hast dich für die Betragsfunktion entschieden.",
+      "SIN, sin, '', Du hast dich für den Sinus entschieden.",
+      "Cos, cos, '', Du hast dich für den Kosinus entschieden.",
+      "TAN, tan, '', Du hast dich für den Tangens entschieden.",
+      "Log, log, '', Du hast dich für den dekadischen Logarithmus entschieden.",
+      "LN, ln, '', Du hast dich für den natürlichen Logarithmus entschieden.",
+      "Factorial, factorial, '', Du hast dich für die Fakultät entschieden.",
+      "POWER, power, 2, Du hast dich für die Potenz entschieden.",
+      "MODE, mode, '', Du hast dich für die Addition entschieden."
   })
   void rejectsInvalidOperatorsAndAcceptsEverySupportedOperatorOnRetry(
-      String invalidOperator, String validOperator, String additionalOperand) {
+      String invalidOperator, String validOperator, String additionalOperand, String expectedDescription) {
     String input = "4\n" + invalidOperator + "\n" + validOperator + "\n";
     if (!additionalOperand.isEmpty()) {
       input += additionalOperand + "\n";
@@ -52,6 +62,7 @@ class CalculatorTest {
     assertEquals(validOperator.equals("mode") ? 3 : 2, occurrencesOf(output, "Wähle einen Operator aus: "));
     assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
     assertEquals(1, resultsIn(output).size());
+    assertTrue(output.contains(expectedDescription + " Das Ergebnis ist: "));
     assertFalse(output.contains("Fehler:"));
     assertFalse(output.contains(EOF_MESSAGE));
     if (validOperator.equals("mode")) {

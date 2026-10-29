@@ -45,122 +45,23 @@ public class Calculator {
           }
         } while (operator.equals("mode"));
 
-        double number2 = 0.0;
+        double additionalOperand = 0.0;
 
         if (operator.equals("+") || operator.equals("-") || operator.equals("*") || operator.equals("/")) {
-          number2 = getValidNumber(scanner, output, "Gib die zweite Zahl ein: ");
+          additionalOperand = getValidNumber(scanner, output, "Gib die zweite Zahl ein: ");
         }
-
-        double exponent = 0.0;
 
         if (operator.equals("power")) {
-          exponent = getValidNumber(scanner, output, "Gib den Exponent ein: ");
+          additionalOperand = getValidNumber(scanner, output, "Gib den Exponent ein: ");
         }
 
-        double root = 0.0;
-
         if (operator.equals("root")) {
-          root = getValidNumber(scanner, output, "Gib den Wurzelexponenten ein: ");
+          additionalOperand = getValidNumber(scanner, output, "Gib den Wurzelexponenten ein: ");
         }
 
         try {
-          double result;
-          switch (operator) {
-            case "+":
-              result = engine.add(number1, number2);
-              output.print("Du hast dich für die Addition entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "-":
-              result = engine.subtract(number1, number2);
-              output.print("Du hast dich für die Subtraktion entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "*":
-              result = engine.multiply(number1, number2);
-              output.print("Du hast dich für die Multiplikation entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "/":
-              result = engine.divide(number1, number2);
-              output.print("Du hast dich für die Division entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "sqrt":
-              result = engine.sqrt(number1);
-              output.print("Du hast dich für die Quadratwurzel entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "root":
-              result = engine.nthRoot(number1, root);
-              output.print("Du hast dich für die n-te Wurzel entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "abs":
-              result = engine.abs(number1);
-              output.print("Du hast dich für die Betragsfunktion entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "sin":
-              result = engine.sin(degreeMode ? Math.toRadians(number1) : number1);
-              output.print("Du hast dich für den Sinus entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "cos":
-              result = engine.cos(degreeMode ? Math.toRadians(number1) : number1);
-              output.print("Du hast dich für den Kosinus entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "tan":
-              if (degreeMode) {
-                double angle = number1 % 180;
-                // Bereits beim Einlesen als double verlorene Stellen sind nicht rekonstruierbar.
-                if (Math.abs(angle) == 90) {
-                  throw new ArithmeticException("Tangens ist für diesen Winkel nicht definiert.");
-                }
-                if (angle > 90) {
-                  angle -= 180;
-                } else if (angle < -90) {
-                  angle += 180;
-                }
-                // Nahe ±90° den kleinen Komplementwinkel und den Kehrwert nutzen.
-                // So erhält die Engine nur Winkel bis ±π/4, niemals gerundete ±π/2.
-                if (Math.abs(angle) > 45) {
-                  double complement = Math.copySign(90.0, angle) - angle;
-                  result = engine.divide(1.0, engine.tan(Math.toRadians(complement)));
-                } else {
-                  result = engine.tan(Math.toRadians(angle));
-                }
-              } else {
-                result = engine.tan(number1);
-              }
-              output.print("Du hast dich für den Tangens entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "log":
-              result = engine.log(number1);
-              output.print("Du hast dich für den dekadischen Logarithmus entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "ln":
-              result = engine.ln(number1);
-              output.print("Du hast dich für den natürlichen Logarithmus entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "factorial":
-              result = engine.factorial(number1);
-              output.print("Du hast dich für die Fakultät entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            case "power":
-              result = engine.power(number1, exponent);
-              output.print("Du hast dich für die Potenz entschieden." + " Das Ergebnis ist: ");
-              break;
-
-            default:
-              throw new IllegalArgumentException("Unbekannter Operator: " + operator);
-          }
-
+          double result = executeOperation(engine, operator, number1, additionalOperand, degreeMode);
+          output.print(getOperationDescription(operator) + " Das Ergebnis ist: ");
           lastResult = result;
           printNumber(output, result);
         } catch (IllegalArgumentException | ArithmeticException exception) {
@@ -179,6 +80,70 @@ public class Calculator {
       output.println();
       output.println("Eingabe beendet. Taschenrechner wird beendet.");
     }
+  }
+
+  private static double executeOperation(CalculatorEngine engine, String operator,
+      double number1, double additionalOperand, boolean degreeMode) {
+    return switch (operator) {
+      case "+" -> engine.add(number1, additionalOperand);
+      case "-" -> engine.subtract(number1, additionalOperand);
+      case "*" -> engine.multiply(number1, additionalOperand);
+      case "/" -> engine.divide(number1, additionalOperand);
+      case "sqrt" -> engine.sqrt(number1);
+      case "root" -> engine.nthRoot(number1, additionalOperand);
+      case "abs" -> engine.abs(number1);
+      case "sin" -> engine.sin(degreeMode ? Math.toRadians(number1) : number1);
+      case "cos" -> engine.cos(degreeMode ? Math.toRadians(number1) : number1);
+      case "tan" -> {
+        if (degreeMode) {
+          double angle = number1 % 180;
+          // Bereits beim Einlesen als double verlorene Stellen sind nicht rekonstruierbar.
+          if (Math.abs(angle) == 90) {
+            throw new ArithmeticException("Tangens ist für diesen Winkel nicht definiert.");
+          }
+          if (angle > 90) {
+            angle -= 180;
+          } else if (angle < -90) {
+            angle += 180;
+          }
+          // Nahe ±90° den kleinen Komplementwinkel und den Kehrwert nutzen.
+          // So erhält die Engine nur Winkel bis ±π/4, niemals gerundete ±π/2.
+          if (Math.abs(angle) > 45) {
+            double complement = Math.copySign(90.0, angle) - angle;
+            yield engine.divide(1.0, engine.tan(Math.toRadians(complement)));
+          } else {
+            yield engine.tan(Math.toRadians(angle));
+          }
+        } else {
+          yield engine.tan(number1);
+        }
+      }
+      case "log" -> engine.log(number1);
+      case "ln" -> engine.ln(number1);
+      case "factorial" -> engine.factorial(number1);
+      case "power" -> engine.power(number1, additionalOperand);
+      default -> throw new IllegalArgumentException("Unbekannter Operator: " + operator);
+    };
+  }
+
+  private static String getOperationDescription(String operator) {
+    return switch (operator) {
+      case "+" -> "Du hast dich für die Addition entschieden.";
+      case "-" -> "Du hast dich für die Subtraktion entschieden.";
+      case "*" -> "Du hast dich für die Multiplikation entschieden.";
+      case "/" -> "Du hast dich für die Division entschieden.";
+      case "sqrt" -> "Du hast dich für die Quadratwurzel entschieden.";
+      case "root" -> "Du hast dich für die n-te Wurzel entschieden.";
+      case "abs" -> "Du hast dich für die Betragsfunktion entschieden.";
+      case "sin" -> "Du hast dich für den Sinus entschieden.";
+      case "cos" -> "Du hast dich für den Kosinus entschieden.";
+      case "tan" -> "Du hast dich für den Tangens entschieden.";
+      case "log" -> "Du hast dich für den dekadischen Logarithmus entschieden.";
+      case "ln" -> "Du hast dich für den natürlichen Logarithmus entschieden.";
+      case "factorial" -> "Du hast dich für die Fakultät entschieden.";
+      case "power" -> "Du hast dich für die Potenz entschieden.";
+      default -> throw new IllegalArgumentException("Unbekannter Operator: " + operator);
+    };
   }
 
   private static void printNumber(PrintStream output, double number) {
