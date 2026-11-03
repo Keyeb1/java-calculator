@@ -935,8 +935,21 @@ class CalculatorTest {
   @ParameterizedTest
   @ValueSource(strings = {"de-DE", "en-US"})
   void usesPointNumbersForAdditionalOperandsAndContinuation(String localeTag) {
-    String output = runCalculator("2\n+\n3,14\n0.5\n1\npower\n2,0\n2\n1\nroot\n2,0\n2\n3\n",
-        Locale.forLanguageTag(localeTag));
+    String output = runCalculator("""
+        2
+        +
+        3,14
+        0.5
+        1
+        power
+        2,0
+        2
+        1
+        root
+        2,0
+        2
+        3
+        """, Locale.forLanguageTag(localeTag));
 
     assertEquals(List.of("2.5", "6.25", "2.5"), resultsIn(output));
     assertEquals(3, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
