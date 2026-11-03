@@ -142,10 +142,10 @@ class CalculatorTest {
 
   @Test
   void redisplaysTheMenuUntilAValidChoiceIsEntered() {
-    String output = runCalculator("2\n+\n3\nabc\n0\n4\n1.5\n1\n+\n1\n3\n");
+    String output = runCalculator("2\n+\n3\nabc\n0\n5\n1.5\n1\n+\n1\n3\n");
 
     assertEquals(List.of("5", "6"), resultsIn(output));
-    assertEquals(4, occurrencesOf(output, "Bitte wähle 1, 2 oder 3."));
+    assertEquals(4, occurrencesOf(output, "Bitte wähle 1, 2, 3 oder 4."));
     assertEquals(6, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
   }
 
@@ -184,7 +184,7 @@ class CalculatorTest {
     assertEquals(List.of("8"), resultsIn(output));
     String beforeFirstResult = output.substring(0, output.indexOf("Das Ergebnis ist: 8"));
     assertFalse(beforeFirstResult.contains("1. Mit dem Ergebnis weiterrechnen"));
-    assertTrue(beforeFirstResult.contains("Bitte wähle 2 oder 3."));
+    assertTrue(beforeFirstResult.contains("Bitte wähle 2, 3 oder 4."));
     assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
   }
 
@@ -208,7 +208,7 @@ class CalculatorTest {
     String afterFailure = output.substring(output.indexOf("Fehler:"), output.indexOf("Das Ergebnis ist: 8"));
     assertFalse(afterFailure.contains("1. Mit dem Ergebnis weiterrechnen"));
     assertFalse(afterFailure.contains("Aktuelles Ergebnis: "));
-    assertTrue(afterFailure.contains("Bitte wähle 2 oder 3."));
+    assertTrue(afterFailure.contains("Bitte wähle 2, 3 oder 4."));
   }
 
   @Test
@@ -234,6 +234,237 @@ class CalculatorTest {
 
     assertEquals(List.of("5", "6"), resultsIn(output));
     assertTrue(output.contains("Fehler: Die Berechnung liefert kein endliches Ergebnis"));
+  }
+
+  @Test
+  void showsSuccessfulCalculationsInOrderWithoutRecordingFailures() {
+    String output = runCalculator("""
+        2
+        +
+        3
+        1
+        *
+        2
+        1
+        /
+        0
+        4
+        1
+        +
+        1
+        4
+        3
+        """);
+
+    assertEquals(List.of("5", "10", "11"), resultsIn(output));
+    assertEquals(List.of(
+        "1. 2 + 3 = 5", "2. 5 * 2 = 10",
+        "1. 2 + 3 = 5", "2. 5 * 2 = 10", "3. 10 + 1 = 11"), historyEntriesIn(output));
+    assertTrue(output.contains("Fehler: Division durch null ist nicht erlaubt."));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @Test
+  void redisplaysTheSameMenuAfterRepeatedlyShowingHistory() {
+    String output = runCalculator("""
+        2
+        +
+        3
+        4
+        4
+        1
+        *
+        2
+        3
+        """);
+
+    String menu = String.join(System.lineSeparator(),
+        "Was möchtest du als Nächstes tun?",
+        "1. Mit dem Ergebnis weiterrechnen",
+        "2. Neue Berechnung starten",
+        "3. Taschenrechner beenden",
+        "4. Verlauf anzeigen",
+        "Deine Auswahl: ");
+    assertEquals(4, occurrencesOf(output, menu));
+    assertEquals(2, occurrencesOf(output, "Rechenverlauf:"));
+    assertEquals(List.of("1. 2 + 3 = 5", "1. 2 + 3 = 5"), historyEntriesIn(output));
+    assertEquals(List.of("5", "10"), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(2, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @Test
+  void keepsHistoryWhenStartingANewCalculation() {
+    String output = runCalculator("""
+        2
+        +
+        3
+        2
+        9
+        -
+        1
+        4
+        3
+        """);
+
+    assertEquals(List.of("5", "8"), resultsIn(output));
+    assertEquals(List.of("1. 2 + 3 = 5", "2. 9 - 1 = 8"), historyEntriesIn(output));
+    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertFalse(output.contains("Aktuelles Ergebnis: "));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @Test
+  void showsPreviousHistoryWithoutAllowingContinuationAfterANewCalculationFails() {
+    String output = runCalculator("""
+        2
+        +
+        3
+        2
+        -1
+        sqrt
+        4
+        1
+        3
+        """);
+
+    assertEquals(List.of("5"), resultsIn(output));
+    assertEquals(List.of("1. 2 + 3 = 5"), historyEntriesIn(output));
+    String afterFailure = output.substring(output.indexOf("Fehler:"));
+    assertFalse(afterFailure.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertEquals(3, occurrencesOf(afterFailure, "4. Verlauf anzeigen"));
+    assertTrue(afterFailure.contains("Bitte wähle 2, 3 oder 4."));
+    assertFalse(output.contains("Aktuelles Ergebnis: "));
+    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @Test
+  void showsEmptyHistoryAfterTheFirstCalculationFails() {
+    String output = runCalculator("""
+        5
+        /
+        0
+        4
+        4
+        1
+        3
+        """);
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(historyEntriesIn(output).isEmpty());
+    assertEquals(2, occurrencesOf(output, "Noch keine erfolgreichen Berechnungen."));
+    assertEquals(4, occurrencesOf(output, "4. Verlauf anzeigen"));
+    assertEquals(1, occurrencesOf(output, "Bitte wähle 2, 3 oder 4."));
+    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @Test
+  void startsEverySessionWithAnEmptyHistory() {
+    String firstSession = runCalculator("2\n+\n3\n4\n3\n");
+    String secondSession = runCalculator("-1\nsqrt\n4\n3\n");
+
+    assertEquals(List.of("1. 2 + 3 = 5"), historyEntriesIn(firstSession));
+    assertTrue(historyEntriesIn(secondSession).isEmpty());
+    assertTrue(secondSession.contains("Noch keine erfolgreichen Berechnungen."));
+    assertFalse(secondSession.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertFalse(firstSession.contains(EOF_MESSAGE));
+    assertFalse(secondSession.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "2, +, 3, 2 + 3 = 5",
+      "0.25, +, 0.5, 0.25 + 0.5 = 0.75",
+      "5, -, 2, 5 - 2 = 3",
+      "5, *, 2, 5 * 2 = 10",
+      "5, /, 2, 5 / 2 = 2.5",
+      "9, sqrt, '', sqrt(9) = 3",
+      "-2.75, abs, '', abs(-2.75) = 2.75",
+      "2, power, 3, 'power(2, 3) = 8'",
+      "16, root, 4, 'root(16, 4) = 2'",
+      "100, log, '', log(100) = 2",
+      "1, ln, '', ln(1) = 0",
+      "5, factorial, '', factorial(5) = 120"
+  })
+  void showsBinaryAndUnaryOperationsWithTheirOperandsInHistory(
+      String number, String operator, String additionalOperand, String expectedEntry) {
+    String input = number + "\n" + operator + "\n";
+    if (!additionalOperand.isEmpty()) {
+      input += additionalOperand + "\n";
+    }
+    String output = runCalculator(input + "4\n3\n");
+
+    assertEquals(List.of("1. " + expectedEntry), historyEntriesIn(output));
+    assertEquals(1, resultsIn(output).size());
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"sin, 90, DEG", "cos, 60, DEG", "tan, 135, DEG",
+      "sin, 1.5, RAD", "cos, 1.5, RAD", "tan, 1.5, RAD"})
+  void preservesOriginalAnglesAndHistoricalModesInHistory(String operator, String angle, String mode) {
+    String output = runCalculator("""
+        %s
+        %s
+        %s
+        4
+        2
+        0
+        mode
+        %s
+        4
+        3
+        """.formatted(angle, mode.equals("RAD") ? "mode" : "", operator, operator));
+
+    List<String> results = resultsIn(output);
+    assertEquals(2, results.size());
+    String firstEntry = "1. " + operator + "(" + angle + ") [" + mode + "] = " + results.getFirst();
+    String nextMode = mode.equals("DEG") ? "RAD" : "DEG";
+    String secondEntry = "2. " + operator + "(0) [" + nextMode + "] = " + results.getLast();
+    assertEquals(List.of(firstEntry, firstEntry, secondEntry), historyEntriesIn(output));
+    assertEquals(operator.equals("cos") ? "1" : "0", results.getLast());
+    assertEquals(2, occurrencesOf(output, "Rechenverlauf:"));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"DEG, 1", "RAD, 0.8939966636005579"})
+  void showingHistoryPreservesTheResultAndAngleMode(String mode, double expected) {
+    String output = runCalculator("""
+        90
+        %s
+        +
+        0
+        4
+        1
+        sin
+        3
+        """.formatted(mode.equals("RAD") ? "mode" : ""));
+
+    List<String> results = resultsIn(output);
+    assertEquals(2, results.size());
+    assertEquals("90", results.getFirst());
+    assertEquals(expected, Double.parseDouble(results.getLast()), TOLERANCE);
+    assertEquals(List.of("1. 90 + 0 = 90"), historyEntriesIn(output));
+    assertTrue(output.contains("Aktuelles Ergebnis: 90"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @Test
+  void canContinueWithAZeroResultAfterShowingHistory() {
+    String output = runCalculator("2\n-\n2\n4\n1\n+\n3\n3\n");
+
+    assertEquals(List.of("0", "3"), resultsIn(output));
+    assertEquals(List.of("1. 2 - 2 = 0"), historyEntriesIn(output));
+    assertTrue(output.contains("Aktuelles Ergebnis: 0" + System.lineSeparator()));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertFalse(output.contains(EOF_MESSAGE));
   }
 
   @Test
@@ -861,7 +1092,7 @@ class CalculatorTest {
     String output = runCalculatorUntilEndOfInput("2\n+\n3\nabc\n");
 
     assertEquals(List.of("5"), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Bitte wähle 1, 2 oder 3."));
+    assertEquals(1, occurrencesOf(output, "Bitte wähle 1, 2, 3 oder 4."));
     assertEquals(2, occurrencesOf(output, "Deine Auswahl: "));
   }
 
@@ -881,6 +1112,23 @@ class CalculatorTest {
     assertEquals(List.of("5"), resultsIn(output));
     assertTrue(output.contains("Aktuelles Ergebnis: 5"));
     assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"2\n+\n3\n4", "-1\nsqrt\n4"})
+  void exitsAtEndOfInputImmediatelyAfterShowingHistory(String input) {
+    String output = runCalculatorUntilEndOfInput(input);
+
+    assertEquals(1, occurrencesOf(output, "Rechenverlauf:"));
+    assertEquals(2, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    if (resultsIn(output).isEmpty()) {
+      assertTrue(historyEntriesIn(output).isEmpty());
+      assertTrue(output.contains("Noch keine erfolgreichen Berechnungen."));
+      assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+    } else {
+      assertEquals(List.of("1. 2 + 3 = 5"), historyEntriesIn(output));
+    }
   }
 
   @Test
@@ -910,9 +1158,11 @@ class CalculatorTest {
   })
   void acceptsPointNumbersAndPreservesFormattingRegardlessOfScannerLocale(String input, String expectedOutput) {
     for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
-      String output = runCalculator(input + "\n*\n1\n3\n", locale);
+      String output = runCalculator(input + "\n*\n1\n4\n3\n", locale);
 
       assertEquals(List.of(expectedOutput), resultsIn(output), locale.toLanguageTag());
+      assertEquals(List.of("1. " + expectedOutput + " * 1 = " + expectedOutput),
+          historyEntriesIn(output), locale.toLanguageTag());
       assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
       assertFalse(output.contains(EOF_MESSAGE));
     }
@@ -1020,6 +1270,12 @@ class CalculatorTest {
   private static List<String> resultsIn(String output) {
     return Pattern.compile("Das Ergebnis ist: ([^\\r\\n]+)").matcher(output).results()
         .map(match -> match.group(1))
+        .toList();
+  }
+
+  private static List<String> historyEntriesIn(String output) {
+    return Pattern.compile("(?m)^\\d+\\. [^\\r\\n]+ = [^\\r\\n]+").matcher(output).results()
+        .map(match -> match.group())
         .toList();
   }
 

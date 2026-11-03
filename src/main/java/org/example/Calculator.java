@@ -1,5 +1,7 @@
 package org.example;
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
 import java.util.Set;
@@ -21,6 +23,7 @@ public class Calculator {
     scanner.useLocale(Locale.US);
     showWelcomeMessage(output);
     CalculatorEngine engine = new CalculatorEngine();
+    List<String> history = new ArrayList<>();
     Double lastResult = null;
     boolean continueWithResult = false;
     boolean degreeMode = true;
@@ -51,13 +54,14 @@ public class Calculator {
 
         try {
           double result = executeOperation(engine, operator, number1, additionalOperand, degreeMode);
+          history.add(formatHistoryEntry(operator, number1, additionalOperand, result, degreeMode));
           output.print(getOperationDescription(operator) + " Das Ergebnis ist: ");
           lastResult = result;
           printNumber(output, result);
         } catch (IllegalArgumentException | ArithmeticException exception) {
           output.println("Fehler: " + exception.getMessage());
         }
-        String choice = getValidNextAction(scanner, output, lastResult != null);
+        String choice = getValidNextAction(scanner, output, lastResult != null, history);
         if (choice.equals("3")) {
           return;
         }
@@ -147,10 +151,36 @@ public class Calculator {
   }
 
   private static void printNumber(PrintStream output, double number) {
-    if (number % 1 == 0) {
-      output.printf(Locale.US, "%.0f%n", number);
+    output.println(formatNumber(number));
+  }
+
+  private static String formatNumber(double number) {
+    return number % 1 == 0
+        ? String.format(Locale.US, "%.0f", number)
+        : Double.toString(number);
+  }
+
+  private static String formatHistoryEntry(String operator, double number1,
+      double additionalOperand, double result, boolean degreeMode) {
+    String firstOperand = formatNumber(number1);
+    String operation = switch (operator) {
+      case "+", "-", "*", "/" -> firstOperand + " " + operator + " " + formatNumber(additionalOperand);
+      case "power", "root" -> operator + "(" + firstOperand + ", " + formatNumber(additionalOperand) + ")";
+      case "sin", "cos", "tan" -> operator + "(" + firstOperand + ") [" + (degreeMode ? "DEG" : "RAD") + "]";
+      default -> operator + "(" + firstOperand + ")";
+    };
+    return operation + " = " + formatNumber(result);
+  }
+
+  private static void showHistory(PrintStream output, List<String> history) {
+    output.println();
+    output.println("Rechenverlauf:");
+    if (history.isEmpty()) {
+      output.println("Noch keine erfolgreichen Berechnungen.");
     } else {
-      output.println(number);
+      for (int index = 0; index < history.size(); index++) {
+        output.println((index + 1) + ". " + history.get(index));
+      }
     }
   }
 
@@ -226,7 +256,8 @@ public class Calculator {
   }
 
 
-  private static String getValidNextAction(Scanner scanner, PrintStream output, boolean hasResult) {
+  private static String getValidNextAction(Scanner scanner, PrintStream output,
+      boolean hasResult, List<String> history) {
     while (true) {
       output.println();
       output.println("Was möchtest du als Nächstes tun?");
@@ -235,14 +266,19 @@ public class Calculator {
       }
       output.println("2. Neue Berechnung starten");
       output.println("3. Taschenrechner beenden");
+      output.println("4. Verlauf anzeigen");
       output.print("Deine Auswahl: ");
 
       requireInput(scanner);
       String choice = scanner.next();
+      if (choice.equals("4")) {
+        showHistory(output, history);
+        continue;
+      }
       if (choice.equals("2") || choice.equals("3") || (hasResult && choice.equals("1"))) {
         return choice;
       }
-      output.println(hasResult ? "Bitte wähle 1, 2 oder 3." : "Bitte wähle 2 oder 3.");
+      output.println(hasResult ? "Bitte wähle 1, 2, 3 oder 4." : "Bitte wähle 2, 3 oder 4.");
     }
   }
 
