@@ -901,9 +901,103 @@ class CalculatorTest {
     return output;
   }
 
+  @ParameterizedTest
+  @CsvSource({
+      "3.14, 3.14", "0.5, 0.5", "-2.75, -2.75", "42, 42", "42.0, 42",
+      "+3.5, 3.5", ".5, 0.5", "3., 3", "1.25e-7, 1.25E-7",
+      "-2.75E-4, -2.75E-4", "1e20, 100000000000000000000",
+      "0x1.6p1, 2.75", "٣.٥, 3.5"
+  })
+  void acceptsPointNumbersAndPreservesFormattingRegardlessOfScannerLocale(String input, String expectedOutput) {
+    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
+      String output = runCalculator(input + "\n*\n1\n3\n", locale);
+
+      assertEquals(List.of(expectedOutput), resultsIn(output), locale.toLanguageTag());
+      assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
+      assertFalse(output.contains(EOF_MESSAGE));
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"3,14", "0,5", "-2,75", "1,234", "-1,234", "+1,234",
+      "1,234.56", "1,234e2", "1,234,567", "1.234,56", "abc"})
+  void rejectsCommasAndInvalidNumbersAndAcceptsAPointNumberOnRetry(String input) {
+    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
+      String output = runCalculator(input + "\n3.14\n+\n0\n3\n", locale);
+
+      assertEquals(List.of("3.14"), resultsIn(output), locale.toLanguageTag());
+      assertEquals(1, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
+      assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
+      assertFalse(output.contains(EOF_MESSAGE));
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"de-DE", "en-US"})
+  void usesPointNumbersForAdditionalOperandsAndContinuation(String localeTag) {
+    String output = runCalculator("2\n+\n3,14\n0.5\n1\npower\n2,0\n2\n1\nroot\n2,0\n2\n3\n",
+        Locale.forLanguageTag(localeTag));
+
+    assertEquals(List.of("2.5", "6.25", "2.5"), resultsIn(output));
+    assertEquals(3, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
+    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(2, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+    assertEquals(2, occurrencesOf(output, "Gib den Exponent ein: "));
+    assertEquals(2, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
+    assertTrue(output.contains("Aktuelles Ergebnis: 2.5"));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"pi", "PI", "e", "E"})
+  void acceptsConstantsRegardlessOfScannerLocale(String constant) {
+    double expected = constant.equalsIgnoreCase("pi") ? Math.PI : Math.E;
+    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
+      String output = runCalculator(constant + "\n*\n1\n3\n", locale);
+
+      assertEquals(List.of(Double.toString(expected)), resultsIn(output), locale.toLanguageTag());
+      assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {Double.MIN_VALUE, Double.MAX_VALUE, -0.0, Math.PI, Math.E})
+  void reentersDisplayedNumbersWithExactlyTheSameDoubleValue(double number) {
+    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
+      String output = runCalculator(Double.toString(number) + "\n*\n1\n3\n", locale);
+      assertEquals(1, resultsIn(output).size());
+      String displayedNumber = resultsIn(output).getFirst();
+
+      String repeatedOutput = runCalculator(displayedNumber + "\n*\n1\n3\n", locale);
+      assertEquals(1, resultsIn(repeatedOutput).size());
+      double repeatedNumber = Double.parseDouble(resultsIn(repeatedOutput).getFirst());
+
+      assertEquals(Double.doubleToLongBits(number), Double.doubleToLongBits(repeatedNumber), locale.toLanguageTag());
+      assertFalse(repeatedOutput.contains("Bitte gebe eine Zahl ein!"));
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"1,234", "3,14"})
+  void handlesEndOfInputAfterRejectedCommaNumbersRegardlessOfScannerLocale(String input) {
+    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
+      String output = assertDoesNotThrow(() -> runCalculator(input, locale));
+
+      assertTrue(resultsIn(output).isEmpty());
+      assertEquals(1, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
+      assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
+      assertEquals(1, occurrencesOf(output, EOF_MESSAGE));
+      assertTrue(output.endsWith(EOF_MESSAGE + System.lineSeparator()));
+    }
+  }
+
   private static String runCalculator(String input) {
+    return runCalculator(input, Locale.US);
+  }
+
+  private static String runCalculator(String input, Locale locale) {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-    try (Scanner scanner = new Scanner(input).useLocale(Locale.US);
+    try (Scanner scanner = new Scanner(input).useLocale(locale);
          PrintStream output = new PrintStream(buffer, true, StandardCharsets.UTF_8)) {
       Calculator.run(scanner, output);
     }

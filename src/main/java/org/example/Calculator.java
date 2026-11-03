@@ -1,5 +1,6 @@
 package org.example;
 import java.io.PrintStream;
+import java.util.Locale;
 import java.util.Scanner;
 import java.util.Set;
 
@@ -11,12 +12,13 @@ public class Calculator {
   );
 
   static void main(String[] args) {
-    try (Scanner scanner = new Scanner(System.in)) {
+    try (Scanner scanner = new Scanner(System.in).useLocale(Locale.US)) {
       run(scanner, System.out);
     }
   }
 
   static void run(Scanner scanner, PrintStream output) {
+    scanner.useLocale(Locale.US);
     showWelcomeMessage(output);
     CalculatorEngine engine = new CalculatorEngine();
     Double lastResult = null;
@@ -146,7 +148,7 @@ public class Calculator {
 
   private static void printNumber(PrintStream output, double number) {
     if (number % 1 == 0) {
-      output.printf("%.0f%n", number);
+      output.printf(Locale.US, "%.0f%n", number);
     } else {
       output.println(number);
     }
@@ -189,7 +191,8 @@ public class Calculator {
     do {
       output.print(inputText);
       requireInput(scanner);
-      if(scanner.hasNextDouble()) {
+      // Locale.US erlaubt Komma-Gruppierungen; Zahlentokens mit Komma bleiben ungültig.
+      if (!scanner.hasNext(".*,.*") && scanner.hasNextDouble()) {
         number = scanner.nextDouble();
         validNumber = true;
       } else {
