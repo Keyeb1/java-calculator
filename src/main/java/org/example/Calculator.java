@@ -45,19 +45,7 @@ public class Calculator {
           }
         } while (operator.equals("mode"));
 
-        double additionalOperand = 0.0;
-
-        if (operator.equals("+") || operator.equals("-") || operator.equals("*") || operator.equals("/")) {
-          additionalOperand = getValidNumber(scanner, output, "Gib die zweite Zahl ein: ");
-        }
-
-        if (operator.equals("power")) {
-          additionalOperand = getValidNumber(scanner, output, "Gib den Exponent ein: ");
-        }
-
-        if (operator.equals("root")) {
-          additionalOperand = getValidNumber(scanner, output, "Gib den Wurzelexponenten ein: ");
-        }
+        double additionalOperand = getAdditionalOperand(scanner, output, operator);
 
         try {
           double result = executeOperation(engine, operator, number1, additionalOperand, degreeMode);
@@ -80,6 +68,16 @@ public class Calculator {
       output.println();
       output.println("Eingabe beendet. Taschenrechner wird beendet.");
     }
+  }
+
+  private static double getAdditionalOperand(Scanner scanner, PrintStream output, String operator) {
+    String inputText = switch (operator) {
+      case "+", "-", "*", "/" -> "Gib die zweite Zahl ein: ";
+      case "power" -> "Gib den Exponent ein: ";
+      case "root" -> "Gib den Wurzelexponenten ein: ";
+      default -> null;
+    };
+    return inputText == null ? 0.0 : getValidNumber(scanner, output, inputText);
   }
 
   private static double executeOperation(CalculatorEngine engine, String operator,

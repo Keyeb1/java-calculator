@@ -830,7 +830,7 @@ class CalculatorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"2\n+\n3", "2\n+\n3\n"})
+  @ValueSource(strings = {"2\n+\n3", "2\n+\n3\n", "25\nsqrt"})
   void exitsAtEndOfInputAfterASuccessfulCalculation(String input) {
     String output = runCalculatorUntilEndOfInput(input);
 
