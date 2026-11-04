@@ -1,72 +1,57 @@
 package org.example;
+
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
-import java.util.Set;
 
 public class Calculator {
-  private static final Set<String> VALID_OPERATORS = Set.of(
-      "+", "-", "*", "/", "sqrt", "root",
-      "abs", "sin", "cos", "tan",
-      "log", "ln", "factorial", "power", "mode"
-  );
 
   static void main(String[] args) {
-    try (Scanner scanner = new Scanner(System.in).useLocale(Locale.US)) {
+    try (Scanner scanner = new Scanner(System.in)) {
       run(scanner, System.out);
     }
   }
 
   static void run(Scanner scanner, PrintStream output) {
-    scanner.useLocale(Locale.US);
     showWelcomeMessage(output);
-    CalculatorEngine engine = new CalculatorEngine();
+    ExpressionEvaluator evaluator = new ExpressionEvaluator();
     List<String> history = new ArrayList<>();
     Double lastResult = null;
-    boolean continueWithResult = false;
-    boolean degreeMode = true;
-    output.println("Aktueller Winkelmodus: DEG");
+    AngleMode angleMode = AngleMode.DEG;
+    output.println("Aktueller Winkelmodus: " + angleMode);
 
     try {
       while (true) {
-        double number1 = continueWithResult
-            ? lastResult
-            : getValidNumber(scanner, output, "Gib die erste Zahl ein: ");
-
-        if (continueWithResult) {
-          output.print("Aktuelles Ergebnis: ");
-          printNumber(output, number1);
+        output.print("Gib einen Rechenausdruck ein: ");
+        String expression = readLine(scanner);
+        if (expression.strip().equals("mode")) {
+          angleMode = angleMode == AngleMode.DEG ? AngleMode.RAD : AngleMode.DEG;
+          output.println("Aktueller Winkelmodus: " + angleMode);
+          continue;
         }
 
-        String operator;
-        do {
-          operator = getValidOperator(scanner, output,
-              "Wähle einen Operator aus: ");
-          if (operator.equals("mode")) {
-            degreeMode = !degreeMode;
-            output.println("Aktueller Winkelmodus: " + (degreeMode ? "DEG" : "RAD"));
-          }
-        } while (operator.equals("mode"));
-
-        double additionalOperand = getAdditionalOperand(scanner, output, operator);
-
         try {
-          double result = executeOperation(engine, operator, number1, additionalOperand, degreeMode);
-          history.add(formatHistoryEntry(operator, number1, additionalOperand, result, degreeMode));
-          output.print(getOperationDescription(operator) + " Das Ergebnis ist: ");
-          lastResult = result;
+          double result = evaluator.evaluate(expression, angleMode, lastResult);
+          history.add(formatHistoryEntry(expression, result, angleMode, lastResult));
+          output.print("Das Ergebnis ist: ");
           printNumber(output, result);
+          lastResult = result;
         } catch (IllegalArgumentException | ArithmeticException exception) {
           output.println("Fehler: " + exception.getMessage());
         }
+
         String choice = getValidNextAction(scanner, output, lastResult != null, history);
         if (choice.equals("3")) {
           return;
         }
-        continueWithResult = choice.equals("1");
-        if (choice.equals("2")) {
+        if (choice.equals("1")) {
+          output.print("Aktuelles Ergebnis: ");
+          printNumber(output, lastResult);
+          output.println("Verwende ans im nächsten Ausdruck für dieses Ergebnis. "
+              + "Ohne ans wird der Ausdruck eigenständig ausgewertet.");
+        } else {
           lastResult = null;
         }
       }
@@ -74,80 +59,6 @@ public class Calculator {
       output.println();
       output.println("Eingabe beendet. Taschenrechner wird beendet.");
     }
-  }
-
-  private static double getAdditionalOperand(Scanner scanner, PrintStream output, String operator) {
-    String inputText = switch (operator) {
-      case "+", "-", "*", "/" -> "Gib die zweite Zahl ein: ";
-      case "power" -> "Gib den Exponent ein: ";
-      case "root" -> "Gib den Wurzelexponenten ein: ";
-      default -> null;
-    };
-    return inputText == null ? 0.0 : getValidNumber(scanner, output, inputText);
-  }
-
-  private static double executeOperation(CalculatorEngine engine, String operator,
-      double number1, double additionalOperand, boolean degreeMode) {
-    return switch (operator) {
-      case "+" -> engine.add(number1, additionalOperand);
-      case "-" -> engine.subtract(number1, additionalOperand);
-      case "*" -> engine.multiply(number1, additionalOperand);
-      case "/" -> engine.divide(number1, additionalOperand);
-      case "sqrt" -> engine.sqrt(number1);
-      case "root" -> engine.nthRoot(number1, additionalOperand);
-      case "abs" -> engine.abs(number1);
-      case "sin" -> engine.sin(degreeMode ? Math.toRadians(number1) : number1);
-      case "cos" -> engine.cos(degreeMode ? Math.toRadians(number1) : number1);
-      case "tan" -> {
-        if (degreeMode) {
-          double angle = number1 % 180;
-          // Bereits beim Einlesen als double verlorene Stellen sind nicht rekonstruierbar.
-          if (Math.abs(angle) == 90) {
-            throw new ArithmeticException("Tangens ist für diesen Winkel nicht definiert.");
-          }
-          if (angle > 90) {
-            angle -= 180;
-          } else if (angle < -90) {
-            angle += 180;
-          }
-          // Nahe ±90° den kleinen Komplementwinkel und den Kehrwert nutzen.
-          // So erhält die Engine nur Winkel bis ±π/4, niemals gerundete ±π/2.
-          if (Math.abs(angle) > 45) {
-            double complement = Math.copySign(90.0, angle) - angle;
-            yield engine.divide(1.0, engine.tan(Math.toRadians(complement)));
-          } else {
-            yield engine.tan(Math.toRadians(angle));
-          }
-        } else {
-          yield engine.tan(number1);
-        }
-      }
-      case "log" -> engine.log(number1);
-      case "ln" -> engine.ln(number1);
-      case "factorial" -> engine.factorial(number1);
-      case "power" -> engine.power(number1, additionalOperand);
-      default -> throw new IllegalArgumentException("Unbekannter Operator: " + operator);
-    };
-  }
-
-  private static String getOperationDescription(String operator) {
-    return switch (operator) {
-      case "+" -> "Du hast dich für die Addition entschieden.";
-      case "-" -> "Du hast dich für die Subtraktion entschieden.";
-      case "*" -> "Du hast dich für die Multiplikation entschieden.";
-      case "/" -> "Du hast dich für die Division entschieden.";
-      case "sqrt" -> "Du hast dich für die Quadratwurzel entschieden.";
-      case "root" -> "Du hast dich für die n-te Wurzel entschieden.";
-      case "abs" -> "Du hast dich für die Betragsfunktion entschieden.";
-      case "sin" -> "Du hast dich für den Sinus entschieden.";
-      case "cos" -> "Du hast dich für den Kosinus entschieden.";
-      case "tan" -> "Du hast dich für den Tangens entschieden.";
-      case "log" -> "Du hast dich für den dekadischen Logarithmus entschieden.";
-      case "ln" -> "Du hast dich für den natürlichen Logarithmus entschieden.";
-      case "factorial" -> "Du hast dich für die Fakultät entschieden.";
-      case "power" -> "Du hast dich für die Potenz entschieden.";
-      default -> throw new IllegalArgumentException("Unbekannter Operator: " + operator);
-    };
   }
 
   private static void printNumber(PrintStream output, double number) {
@@ -160,16 +71,13 @@ public class Calculator {
         : Double.toString(number);
   }
 
-  private static String formatHistoryEntry(String operator, double number1,
-      double additionalOperand, double result, boolean degreeMode) {
-    String firstOperand = formatNumber(number1);
-    String operation = switch (operator) {
-      case "+", "-", "*", "/" -> firstOperand + " " + operator + " " + formatNumber(additionalOperand);
-      case "power", "root" -> operator + "(" + firstOperand + ", " + formatNumber(additionalOperand) + ")";
-      case "sin", "cos", "tan" -> operator + "(" + firstOperand + ") [" + (degreeMode ? "DEG" : "RAD") + "]";
-      default -> operator + "(" + firstOperand + ")";
-    };
-    return operation + " = " + formatNumber(result);
+  private static String formatHistoryEntry(String expression, double result,
+      AngleMode angleMode, Double previousResult) {
+    String context = angleMode.toString();
+    if (previousResult != null) {
+      context += ", ans=" + formatNumber(previousResult);
+    }
+    return expression + " [" + context + "] = " + formatNumber(result);
   }
 
   private static void showHistory(PrintStream output, List<String> history) {
@@ -184,77 +92,22 @@ public class Calculator {
     }
   }
 
-
   private static void showWelcomeMessage(PrintStream output) {
-    output.println("======================================== JAVA CALCULATOR ========================================");
-    output.println("Verfügbare Operationen:");
-    output.println("+      Addition");
-    output.println("-      Subtraktion");
-    output.println("*      Multiplikation");
-    output.println("/      Division");
-    output.println("sqrt   Quadratwurzel");
-    output.println("root   n-te Wurzel");
-    output.println("abs    Betrag");
-    output.println("sin    Sinus");
-    output.println("cos    Kosinus");
-    output.println("tan    Tangens");
-    output.println("log    Dekadischer Logarithmus (Basis 10)");
-    output.println("ln     Natürlicher Logarithmus (Basis e)");
-    output.println("power  Potenzberechnung");
-    output.println("factorial  Fakultät (ganze Zahlen von 0 bis 20)");
-    output.println("mode   Zwischen DEG (Grad) und RAD (Radiant) wechseln; Standard ist DEG");
-    output.println();
-    output.println("Folge einfach den Anweisungen und gib die");
-    output.println("gewünschten Werte in der Konsole ein.");
-    output.println("Du kannst pi (auch PI oder Pi) statt einer Zahl eingeben.");
-    output.println("Du kannst auch e oder E für die Eulersche Zahl eingeben.");
-    output.println();
-    output.println("Los geht's!");
-    output.println("===============================================================================================");
-
+    output.println("================================ JAVA CALCULATOR ================================");
+    output.println("Gib vollständige Ausdrücke ein, z. B. 3+4+5*4-5 oder (3+4)*2.");
+    output.println("Punkt vor Strich; Klammern ändern die Reihenfolge. Operatoren: +, -, *, /.");
+    output.println("Multiplikation immer mit * schreiben, z. B. 2*pi.");
+    output.println("Zahlen mit Dezimalpunkt: 3.14, .5, 3.; wissenschaftlich: 1.25e-7.");
+    output.println("Konstanten: pi (auch PI/Pi) und e/E.");
+    output.println("Funktionen: sqrt(x), abs(x), sin(x), cos(x), tan(x), log(x), ln(x), factorial(x).");
+    output.println("Kommas trennen Argumente: power(2,3) und root(27,3).");
+    output.println("ans verwendet das letzte Ergebnis; nach einer neuen Berechnung ist ans nicht verfügbar.");
+    output.println("ans und Funktionsnamen werden kleingeschrieben.");
+    output.println("mode wechselt an der Ausdrucksabfrage zwischen DEG und RAD; Standard ist DEG.");
+    output.println("Grenzen: 256 Zeichen einschließlich Leerzeichen, 50 Operationen "
+        + "(Operatoren, Vorzeichen, Funktionsaufrufe), 16 gleichzeitig offene Klammerebenen.");
+    output.println("=================================================================================");
   }
-
-  private static double getValidNumber(Scanner scanner, PrintStream output, String inputText) {
-
-    boolean validNumber = false;
-    double number = 0;
-    do {
-      output.print(inputText);
-      requireInput(scanner);
-      // Locale.US erlaubt Komma-Gruppierungen; Zahlentokens mit Komma bleiben ungültig.
-      if (!scanner.hasNext(".*,.*") && scanner.hasNextDouble()) {
-        number = scanner.nextDouble();
-        validNumber = true;
-      } else {
-        String input = scanner.next();
-        if (input.equalsIgnoreCase("pi")) {
-          number = Math.PI;
-          validNumber = true;
-        } else if (input.equalsIgnoreCase("e")) {
-          number = Math.E;
-          validNumber = true;
-        } else {
-          output.println("Bitte gebe eine Zahl ein! ");
-        }
-      }
-    } while (!validNumber);
-
-    return number;
-  }
-
-
-  private static String getValidOperator(Scanner scanner, PrintStream output, String inputText) {
-    while (true) {
-      output.print(inputText);
-      requireInput(scanner);
-      String operator = scanner.next();
-      if (VALID_OPERATORS.contains(operator)) {
-        return operator;
-      }
-      output.println("Bitte gib einen der erlaubten Operatoren ein!");
-    }
-  }
-
 
   private static String getValidNextAction(Scanner scanner, PrintStream output,
       boolean hasResult, List<String> history) {
@@ -269,8 +122,7 @@ public class Calculator {
       output.println("4. Verlauf anzeigen");
       output.print("Deine Auswahl: ");
 
-      requireInput(scanner);
-      String choice = scanner.next();
+      String choice = readLine(scanner).strip();
       if (choice.equals("4")) {
         showHistory(output, history);
         continue;
@@ -282,14 +134,14 @@ public class Calculator {
     }
   }
 
-  private static void requireInput(Scanner scanner) {
-    if (!scanner.hasNext()) {
+  private static String readLine(Scanner scanner) {
+    if (!scanner.hasNextLine()) {
       throw new EndOfInputException();
     }
+    return scanner.nextLine();
   }
 
   /** Internes Signal für ein kontrolliertes Ende der Konsoleneingabe. */
   private static final class EndOfInputException extends RuntimeException {
   }
-
 }

@@ -2,7 +2,9 @@ package org.example;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayOutputStream;
@@ -12,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,757 +23,584 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CalculatorTest {
-
   private static final double TOLERANCE = 1e-12;
+  private static final String EXPRESSION_PROMPT = "Gib einen Rechenausdruck ein: ";
   private static final String EOF_MESSAGE = "Eingabe beendet. Taschenrechner wird beendet.";
+  private static final String FULL_MENU = String.join(System.lineSeparator(),
+      "Was möchtest du als Nächstes tun?",
+      "1. Mit dem Ergebnis weiterrechnen",
+      "2. Neue Berechnung starten",
+      "3. Taschenrechner beenden",
+      "4. Verlauf anzeigen",
+      "Deine Auswahl: ");
+  private static final String NO_RESULT_MENU = String.join(System.lineSeparator(),
+      "Was möchtest du als Nächstes tun?",
+      "2. Neue Berechnung starten",
+      "3. Taschenrechner beenden",
+      "4. Verlauf anzeigen",
+      "Deine Auswahl: ");
 
   @Test
-  void additionWorks() {
-    assertEquals(4, 2 + 2);
+  void explainsExpressionInputAndStartsInDegreesWithoutAns() {
+    String output = runCalculator("ans\n3\n");
+
+    for (String hint : List.of("vollständige Ausdrücke", "Punkt vor Strich", "Klammern",
+        "Dezimalpunkt", "1.25e-7", "sqrt(x)", "power(2,3)", "root(27,3)",
+        "Kommas trennen Argumente", "ans", "mode", "256 Zeichen", "50 Operationen", "16 gleichzeitig")) {
+      assertTrue(output.contains(hint), hint);
+    }
+    assertTrue(output.contains("Aktueller Winkelmodus: DEG"));
+    assertTrue(output.contains("kein letztes Ergebnis"));
+    assertTrue(output.contains(NO_RESULT_MENU));
+    assertTrue(resultsIn(output).isEmpty());
+    assertFalse(output.contains(EOF_MESSAGE));
   }
 
   @ParameterizedTest
-  @CsvSource({
-      "?, +, 2, Du hast dich für die Addition entschieden.",
-      "++, -, 2, Du hast dich für die Subtraktion entschieden.",
-      "unknown, *, 2, Du hast dich für die Multiplikation entschieden.",
-      "^, /, 2, Du hast dich für die Division entschieden.",
-      "SQRT, sqrt, '', Du hast dich für die Quadratwurzel entschieden.",
-      "Root, root, 2, Du hast dich für die n-te Wurzel entschieden.",
-      "Abs, abs, '', Du hast dich für die Betragsfunktion entschieden.",
-      "SIN, sin, '', Du hast dich für den Sinus entschieden.",
-      "Cos, cos, '', Du hast dich für den Kosinus entschieden.",
-      "TAN, tan, '', Du hast dich für den Tangens entschieden.",
-      "Log, log, '', Du hast dich für den dekadischen Logarithmus entschieden.",
-      "LN, ln, '', Du hast dich für den natürlichen Logarithmus entschieden.",
-      "Factorial, factorial, '', Du hast dich für die Fakultät entschieden.",
-      "POWER, power, 2, Du hast dich für die Potenz entschieden.",
-      "MODE, mode, '', Du hast dich für die Addition entschieden."
-  })
-  void rejectsInvalidOperatorsAndAcceptsEverySupportedOperatorOnRetry(
-      String invalidOperator, String validOperator, String additionalOperand, String expectedDescription) {
-    String input = "4\n" + invalidOperator + "\n" + validOperator + "\n";
-    if (!additionalOperand.isEmpty()) {
-      input += additionalOperand + "\n";
-    }
-    if (validOperator.equals("mode")) {
-      input += "+\n2\n";
-    }
-    String output = runCalculator(input + "3\n");
+  @CsvSource(value = {
+      "3+4+5+6+7 | 25", "3+4+5*4-5 | 22", "(3+4+5)*4-5 | 43",
+      "20/5*2 | 8", "10-3-2 | 5", "16/4/2 | 2", "2*(-4) | -8",
+      "-(3+4) | -7", "1e-3+2 | 2.001", " 3 + 4 * 2  | 11",
+      "sqrt(4+5) | 3", "power(2, 1+2) | 8", "sqrt(abs(-9)) | 3"
+  }, delimiter = '|')
+  void evaluatesFullExpressionsWithPrecedenceAndParentheses(String expression, double expected) {
+    String output = runCalculator(expression + "\n3\n");
 
-    assertEquals(1, occurrencesOf(output, "Bitte gib einen der erlaubten Operatoren ein!"));
-    assertEquals(validOperator.equals("mode") ? 3 : 2, occurrencesOf(output, "Wähle einen Operator aus: "));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
     assertEquals(1, resultsIn(output).size());
-    assertTrue(output.contains(expectedDescription + " Das Ergebnis ist: "));
+    assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertEquals(1, occurrencesOf(output, EXPRESSION_PROMPT));
     assertFalse(output.contains("Fehler:"));
     assertFalse(output.contains(EOF_MESSAGE));
-    if (validOperator.equals("mode")) {
-      assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
-    }
   }
 
   @Test
-  void continuesRepeatedlyWithThePreviousResult() {
+  void continuesRepeatedlyWithExplicitAns() {
     String output = runCalculator("""
-        2
-        +
-        7
+        2+7
         1
-        sqrt
+        sqrt(ans)
         1
-        power
-        2
+        power(ans,2)
         1
-        *
-        2
+        ans*2
         1
-        -
-        6
+        ans-6
         1
-        /
-        3
+        ans/3
         1
-        +
-        1
+        ans+1
         3
         """);
 
     assertEquals(List.of("9", "3", "9", "18", "12", "4", "5"), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(5, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-    assertEquals(1, occurrencesOf(output, "Gib den Exponent ein: "));
+    assertEquals(7, occurrencesOf(output, EXPRESSION_PROMPT));
     assertEquals(6, occurrencesOf(output, "Aktuelles Ergebnis: "));
+    assertTrue(output.contains("Verwende ans im nächsten Ausdruck"));
+    assertFalse(output.contains(EOF_MESSAGE));
   }
 
-  @Test
-  void displaysTheCurrentResultBeforeTheNextOperatorSelection() {
-    String output = runCalculator("10\n+\n5\n1\n*\n2\n3\n");
+  @ParameterizedTest
+  @CsvSource(value = {"2 | 2", "+2 | 2", "-2 | -2", "2*3 | 6"}, delimiter = '|')
+  void evaluatesExpressionsWithoutAnsIndependentlyWhenContinuing(String expression, String expected) {
+    String output = runCalculator("2+3\n1\n" + expression + "\n4\n3\n");
 
-    assertEquals(List.of("15", "30"), resultsIn(output));
-    assertTrue(output.contains("Aktuelles Ergebnis: 15" + System.lineSeparator()
-        + "Wähle einen Operator aus"));
+    assertEquals(List.of("5", expected), resultsIn(output));
+    assertEquals(List.of("1. 2+3 [DEG] = 5",
+        "2. " + expression + " [DEG, ans=5] = " + expected), historyEntriesIn(output));
+    assertTrue(output.contains("Aktuelles Ergebnis: 5" + System.lineSeparator()));
+    assertTrue(output.contains("Ohne ans wird der Ausdruck eigenständig ausgewertet."));
   }
 
   @Test
   void displaysFractionalResultsWhenContinuing() {
-    String output = runCalculator("1\n/\n4\n1\n+\n0.5\n3\n");
+    String output = runCalculator("1/4\n1\nans+0.5\n3\n");
 
     assertEquals(List.of("0.25", "0.75"), resultsIn(output));
-    assertTrue(output.contains("Aktuelles Ergebnis: 0.25" + System.lineSeparator()
-        + "Wähle einen Operator aus"));
+    assertTrue(output.contains("Aktuelles Ergebnis: 0.25" + System.lineSeparator()));
   }
 
   @Test
-  void startsANewCalculationWhenRequested() {
-    String output = runCalculator("2\n+\n3\n2\n10\n-\n4\n3\n");
+  void startsANewCalculationWithoutThePreviousAns() {
+    String output = runCalculator("2+3\n2\n10-4\n4\n3\n");
 
     assertEquals(List.of("5", "6"), resultsIn(output));
-    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(List.of("1. 2+3 [DEG] = 5", "2. 10-4 [DEG] = 6"), historyEntriesIn(output));
     assertFalse(output.contains("Aktuelles Ergebnis: "));
   }
 
   @Test
-  void exitsAfterASuccessfulCalculation() {
-    String output = runCalculator("2\n+\n3\n3\n10\n+\n20\n3\n");
+  void exitsWithoutReadingFurtherExpressions() {
+    String output = runCalculator("2+3\n3\n10+20\n3\n");
 
     assertEquals(List.of("5"), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(1, occurrencesOf(output, EXPRESSION_PROMPT));
+    assertEquals(1, occurrencesOf(output, FULL_MENU));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"abc", "0", "5", "1.5", "1 2", "3 trailing", "4 3", "mode", "", " \t "})
+  void rejectsInvalidMenuLinesWithoutInterpretingSeparateTokens(String choice) {
+    String output = runCalculator("2+3\n" + choice + "\n3\n");
+
+    assertEquals(List.of("5"), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Bitte wähle 1, 2, 3 oder 4."));
+    assertEquals(2, occurrencesOf(output, FULL_MENU));
+    assertEquals(1, occurrencesOf(output, EXPRESSION_PROMPT));
+    assertFalse(output.contains("Rechenverlauf:"));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"1", "5", "", "abc", "2 3"})
+  void rejectsContinuationAndInvalidMenuLinesWhenNoResultExists(String choice) {
+    String output = runCalculator("5/0\n" + choice + "\n3\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertEquals(1, occurrencesOf(output, "Bitte wähle 2, 3 oder 4."));
+    assertEquals(2, occurrencesOf(output, NO_RESULT_MENU));
     assertFalse(output.contains(EOF_MESSAGE));
   }
 
   @Test
-  void redisplaysTheMenuUntilAValidChoiceIsEntered() {
-    String output = runCalculator("2\n+\n3\nabc\n0\n5\n1.5\n1\n+\n1\n3\n");
+  void acceptsOuterWhitespaceForAllMenuChoicesWithoutLosingTheNextExpression() {
+    String output = runCalculator("2+3\n \t4 \t\n 1 \nans*2\n 2 \n7\n\t3\t\n");
 
-    assertEquals(List.of("5", "6"), resultsIn(output));
-    assertEquals(4, occurrencesOf(output, "Bitte wähle 1, 2, 3 oder 4."));
-    assertEquals(6, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
+    assertEquals(List.of("5", "10", "7"), resultsIn(output));
+    assertEquals(List.of("1. 2+3 [DEG] = 5"), historyEntriesIn(output));
+    assertEquals(3, occurrencesOf(output, EXPRESSION_PROMPT));
+    assertFalse(output.contains("Bitte wähle"));
+    assertFalse(output.contains("Fehler:"));
+    assertFalse(output.contains(EOF_MESSAGE));
   }
 
   @Test
-  void keepsTheLastResultAfterAFailedContinuation() {
-    String output = runCalculator("2\n+\n3\n1\n/\n0\n1\n*\n2\n3\n");
+  void acceptsWindowsLineEndingsAndAnUnterminatedFinalMenuLine() {
+    String output = runCalculator("2+3\r\n1\r\nans*2\r\n3");
 
     assertEquals(List.of("5", "10"), resultsIn(output));
-    assertTrue(output.contains("Fehler: Division durch null ist nicht erlaubt."));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertFalse(output.contains("Fehler:"));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"ans/0", "ans+", "power(ans,1000)", "1e309", "sqrt(ans,2)", ""})
+  void keepsTheLastResultAfterFailedContinuationAndAllowsAnsAgain(String expression) {
+    String output = runCalculator("2+3\n1\n" + expression + "\n4\n1\nans*2\n3\n");
+
+    assertEquals(List.of("5", "10"), resultsIn(output));
+    assertEquals(List.of("1. 2+3 [DEG] = 5"), historyEntriesIn(output));
+    assertEquals(1, occurrencesOf(output, "Fehler:"));
     assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: 5"));
+    assertFalse(output.contains(EOF_MESSAGE));
   }
 
   @Test
-  void canStartANewCalculationAfterAFailedContinuation() {
-    String output = runCalculator("2\n+\n3\n1\n/\n0\n2\n7\n+\n1\n3\n");
+  void canStartANewCalculationAfterFailedContinuation() {
+    String output = runCalculator("2+3\n1\nans/0\n2\n7+1\n4\n3\n");
 
     assertEquals(List.of("5", "8"), resultsIn(output));
-    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
     assertTrue(output.contains("Fehler: Division durch null ist nicht erlaubt."));
+    assertEquals(List.of("1. 2+3 [DEG] = 5", "2. 7+1 [DEG] = 8"), historyEntriesIn(output));
   }
 
   @Test
-  void canExitAfterAFailedContinuation() {
-    String output = runCalculator("2\n+\n3\n1\n/\n0\n3\n");
+  void canExitAfterFailedContinuation() {
+    String output = runCalculator("2+3\n1\nans/0\n3\n");
 
     assertEquals(List.of("5"), resultsIn(output));
     assertTrue(output.contains("Fehler: Division durch null ist nicht erlaubt."));
-    assertEquals(2, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
+    assertEquals(2, occurrencesOf(output, FULL_MENU));
+    assertFalse(output.contains(EOF_MESSAGE));
   }
 
   @Test
   void rejectsContinuationUntilAValidResultExists() {
-    String output = runCalculator("5\n/\n0\n1\n2\n6\n+\n2\n3\n");
+    String output = runCalculator("5/0\n1\n2\n6+2\n3\n");
 
     assertEquals(List.of("8"), resultsIn(output));
-    String beforeFirstResult = output.substring(0, output.indexOf("Das Ergebnis ist: 8"));
-    assertFalse(beforeFirstResult.contains("1. Mit dem Ergebnis weiterrechnen"));
-    assertTrue(beforeFirstResult.contains("Bitte wähle 2, 3 oder 4."));
-    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    String beforeSuccess = output.substring(0, output.indexOf("Das Ergebnis ist: 8"));
+    assertFalse(beforeSuccess.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertTrue(beforeSuccess.contains("Bitte wähle 2, 3 oder 4."));
   }
 
-  @Test
-  void canExitAfterTheFirstCalculationFails() {
-    String output = runCalculator("-1\nsqrt\n3\n");
-
-    assertTrue(resultsIn(output).isEmpty());
-    assertTrue(output.contains("Fehler: Die Quadratwurzel einer negativen Zahl ist nicht erlaubt."));
-    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
-    assertFalse(output.contains(EOF_MESSAGE));
-  }
-
-  @Test
-  void discardsThePreviousResultWhenANewCalculationFails() {
-    String output = runCalculator("2\n+\n3\n2\n-1\nsqrt\n1\n2\n6\n+\n2\n3\n");
+  @ParameterizedTest
+  @ValueSource(strings = {"ans+1", "sqrt(-1)", "2+"})
+  void showsPreviousHistoryButRejectsAnsAndContinuationAfterANewCalculationFails(String expression) {
+    String output = runCalculator("2+3\n2\n" + expression + "\n4\n1\n2\n6+2\n4\n3\n");
 
     assertEquals(List.of("5", "8"), resultsIn(output));
-    assertTrue(output.contains("Fehler: Die Quadratwurzel einer negativen Zahl ist nicht erlaubt."));
-    assertEquals(3, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(List.of("1. 2+3 [DEG] = 5",
+        "1. 2+3 [DEG] = 5", "2. 6+2 [DEG] = 8"), historyEntriesIn(output));
     String afterFailure = output.substring(output.indexOf("Fehler:"), output.indexOf("Das Ergebnis ist: 8"));
     assertFalse(afterFailure.contains("1. Mit dem Ergebnis weiterrechnen"));
-    assertFalse(afterFailure.contains("Aktuelles Ergebnis: "));
     assertTrue(afterFailure.contains("Bitte wähle 2, 3 oder 4."));
+    assertFalse(output.contains("Aktuelles Ergebnis: "));
+    if (expression.contains("ans")) {
+      assertTrue(output.contains("kein letztes Ergebnis"));
+    }
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @CsvSource(value = {"2-2 | 0", "-0.0 | -0"}, delimiter = '|')
+  void canContinueWithEitherSignedZeroAfterShowingHistory(String expression, String expected) {
+    String output = runCalculator(expression + "\n4\n1\nans\n4\n3\n");
+
+    assertEquals(List.of(expected, expected), resultsIn(output));
+    assertTrue(output.contains("Aktuelles Ergebnis: " + expected + System.lineSeparator()));
+    assertEquals(List.of("1. " + expression + " [DEG] = " + expected,
+        "1. " + expression + " [DEG] = " + expected,
+        "2. ans [DEG, ans=" + expected + "] = " + expected), historyEntriesIn(output));
+    assertEquals(Double.doubleToLongBits(Double.parseDouble(expected)),
+        Double.doubleToLongBits(Double.parseDouble(resultsIn(output).getLast())));
+    assertFalse(output.contains("Fehler:"));
   }
 
   @Test
-  void canContinueWithAZeroResult() {
-    String output = runCalculator("2\n-\n2\n1\n+\n3\n3\n");
-
-    assertEquals(List.of("0", "3"), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertTrue(output.contains("Aktuelles Ergebnis: 0" + System.lineSeparator()));
-  }
-
-  @Test
-  void keepsTheLastResultAfterANonFiniteOperand() {
-    String output = runCalculator("2\n+\n3\n1\n+\nNaN\n1\n*\n2\n3\n");
-
-    assertEquals(List.of("5", "10"), resultsIn(output));
-    assertTrue(output.contains("Fehler: Operanden müssen endliche Zahlen sein"));
-  }
-
-  @Test
-  void keepsTheLastResultAfterAnOverflow() {
-    String output = runCalculator("2\n+\n3\n1\npower\n1000\n1\n+\n1\n3\n");
-
-    assertEquals(List.of("5", "6"), resultsIn(output));
-    assertTrue(output.contains("Fehler: Die Berechnung liefert kein endliches Ergebnis"));
-  }
-
-  @Test
-  void showsSuccessfulCalculationsInOrderWithoutRecordingFailures() {
+  void recordsExpressionsAndTheirPreviousAnsBeforeUpdatingTheResult() {
     String output = runCalculator("""
-        2
-        +
-        3
+        3+4+5*4-5
         1
-        *
-        2
-        1
-        /
-        0
-        4
-        1
-        +
-        1
+        ans*2+6
         4
         3
         """);
+
+    assertEquals(List.of("22", "50"), resultsIn(output));
+    assertEquals(List.of("1. 3+4+5*4-5 [DEG] = 22",
+        "2. ans*2+6 [DEG, ans=22] = 50"), historyEntriesIn(output));
+  }
+
+  @Test
+  void showsHistoryRepeatedlyWithoutDuplicatingEntriesOrChangingTheMenu() {
+    String output = runCalculator("2+3\n4\n4\n1\nans*2\n4\n3\n");
+
+    assertEquals(List.of("5", "10"), resultsIn(output));
+    assertEquals(List.of("1. 2+3 [DEG] = 5", "1. 2+3 [DEG] = 5",
+        "1. 2+3 [DEG] = 5", "2. ans*2 [DEG, ans=5] = 10"), historyEntriesIn(output));
+    assertEquals(5, occurrencesOf(output, FULL_MENU));
+    assertEquals(2, occurrencesOf(output, EXPRESSION_PROMPT));
+  }
+
+  @Test
+  void recordsOnlySuccessfulExpressionsInOrderAfterErrors() {
+    String output = runCalculator("2+3\n1\nans*2\n1\nans/0\n4\n1\nans+1\n4\n3\n");
 
     assertEquals(List.of("5", "10", "11"), resultsIn(output));
-    assertEquals(List.of(
-        "1. 2 + 3 = 5", "2. 5 * 2 = 10",
-        "1. 2 + 3 = 5", "2. 5 * 2 = 10", "3. 10 + 1 = 11"), historyEntriesIn(output));
-    assertTrue(output.contains("Fehler: Division durch null ist nicht erlaubt."));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertFalse(output.contains(EOF_MESSAGE));
+    assertEquals(List.of("1. 2+3 [DEG] = 5", "2. ans*2 [DEG, ans=5] = 10",
+        "1. 2+3 [DEG] = 5", "2. ans*2 [DEG, ans=5] = 10",
+        "3. ans+1 [DEG, ans=10] = 11"), historyEntriesIn(output));
+    assertEquals(1, occurrencesOf(output, "Fehler:"));
   }
 
   @Test
-  void redisplaysTheSameMenuAfterRepeatedlyShowingHistory() {
-    String output = runCalculator("""
-        2
-        +
-        3
-        4
-        4
-        1
-        *
-        2
-        3
-        """);
-
-    String menu = String.join(System.lineSeparator(),
-        "Was möchtest du als Nächstes tun?",
-        "1. Mit dem Ergebnis weiterrechnen",
-        "2. Neue Berechnung starten",
-        "3. Taschenrechner beenden",
-        "4. Verlauf anzeigen",
-        "Deine Auswahl: ");
-    assertEquals(4, occurrencesOf(output, menu));
-    assertEquals(2, occurrencesOf(output, "Rechenverlauf:"));
-    assertEquals(List.of("1. 2 + 3 = 5", "1. 2 + 3 = 5"), historyEntriesIn(output));
-    assertEquals(List.of("5", "10"), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(2, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-    assertFalse(output.contains(EOF_MESSAGE));
-  }
-
-  @Test
-  void keepsHistoryWhenStartingANewCalculation() {
-    String output = runCalculator("""
-        2
-        +
-        3
-        2
-        9
-        -
-        1
-        4
-        3
-        """);
-
-    assertEquals(List.of("5", "8"), resultsIn(output));
-    assertEquals(List.of("1. 2 + 3 = 5", "2. 9 - 1 = 8"), historyEntriesIn(output));
-    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertFalse(output.contains("Aktuelles Ergebnis: "));
-    assertFalse(output.contains(EOF_MESSAGE));
-  }
-
-  @Test
-  void showsPreviousHistoryWithoutAllowingContinuationAfterANewCalculationFails() {
-    String output = runCalculator("""
-        2
-        +
-        3
-        2
-        -1
-        sqrt
-        4
-        1
-        3
-        """);
-
-    assertEquals(List.of("5"), resultsIn(output));
-    assertEquals(List.of("1. 2 + 3 = 5"), historyEntriesIn(output));
-    String afterFailure = output.substring(output.indexOf("Fehler:"));
-    assertFalse(afterFailure.contains("1. Mit dem Ergebnis weiterrechnen"));
-    assertEquals(3, occurrencesOf(afterFailure, "4. Verlauf anzeigen"));
-    assertTrue(afterFailure.contains("Bitte wähle 2, 3 oder 4."));
-    assertFalse(output.contains("Aktuelles Ergebnis: "));
-    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertFalse(output.contains(EOF_MESSAGE));
-  }
-
-  @Test
-  void showsEmptyHistoryAfterTheFirstCalculationFails() {
-    String output = runCalculator("""
-        5
-        /
-        0
-        4
-        4
-        1
-        3
-        """);
+  void showsEmptyHistoryAfterFirstFailureAndKeepsTheMenuWithoutContinuation() {
+    String output = runCalculator("sqrt(-1)\n4\n4\n1\n3\n");
 
     assertTrue(resultsIn(output).isEmpty());
     assertTrue(historyEntriesIn(output).isEmpty());
     assertEquals(2, occurrencesOf(output, "Noch keine erfolgreichen Berechnungen."));
-    assertEquals(4, occurrencesOf(output, "4. Verlauf anzeigen"));
-    assertEquals(1, occurrencesOf(output, "Bitte wähle 2, 3 oder 4."));
+    assertEquals(4, occurrencesOf(output, NO_RESULT_MENU));
     assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertFalse(output.contains(EOF_MESSAGE));
+    assertEquals(1, occurrencesOf(output, "Bitte wähle 2, 3 oder 4."));
   }
 
   @Test
-  void startsEverySessionWithAnEmptyHistory() {
-    String firstSession = runCalculator("2\n+\n3\n4\n3\n");
-    String secondSession = runCalculator("-1\nsqrt\n4\n3\n");
+  void preservesOriginalExpressionWhitespaceInHistory() {
+    String expression = "  3 + 4  ";
+    String output = runCalculator(expression + "\n4\n3\n");
 
-    assertEquals(List.of("1. 2 + 3 = 5"), historyEntriesIn(firstSession));
-    assertTrue(historyEntriesIn(secondSession).isEmpty());
-    assertTrue(secondSession.contains("Noch keine erfolgreichen Berechnungen."));
-    assertFalse(secondSession.contains("1. Mit dem Ergebnis weiterrechnen"));
-    assertFalse(firstSession.contains(EOF_MESSAGE));
-    assertFalse(secondSession.contains(EOF_MESSAGE));
-  }
-
-  @ParameterizedTest
-  @CsvSource({
-      "2, +, 3, 2 + 3 = 5",
-      "0.25, +, 0.5, 0.25 + 0.5 = 0.75",
-      "5, -, 2, 5 - 2 = 3",
-      "5, *, 2, 5 * 2 = 10",
-      "5, /, 2, 5 / 2 = 2.5",
-      "9, sqrt, '', sqrt(9) = 3",
-      "-2.75, abs, '', abs(-2.75) = 2.75",
-      "2, power, 3, 'power(2, 3) = 8'",
-      "16, root, 4, 'root(16, 4) = 2'",
-      "100, log, '', log(100) = 2",
-      "1, ln, '', ln(1) = 0",
-      "5, factorial, '', factorial(5) = 120"
-  })
-  void showsBinaryAndUnaryOperationsWithTheirOperandsInHistory(
-      String number, String operator, String additionalOperand, String expectedEntry) {
-    String input = number + "\n" + operator + "\n";
-    if (!additionalOperand.isEmpty()) {
-      input += additionalOperand + "\n";
-    }
-    String output = runCalculator(input + "4\n3\n");
-
-    assertEquals(List.of("1. " + expectedEntry), historyEntriesIn(output));
-    assertEquals(1, resultsIn(output).size());
-    assertFalse(output.contains(EOF_MESSAGE));
-  }
-
-  @ParameterizedTest
-  @CsvSource({"sin, 90, DEG", "cos, 60, DEG", "tan, 135, DEG",
-      "sin, 1.5, RAD", "cos, 1.5, RAD", "tan, 1.5, RAD"})
-  void preservesOriginalAnglesAndHistoricalModesInHistory(String operator, String angle, String mode) {
-    String output = runCalculator("""
-        %s
-        %s
-        %s
-        4
-        2
-        0
-        mode
-        %s
-        4
-        3
-        """.formatted(angle, mode.equals("RAD") ? "mode" : "", operator, operator));
-
-    List<String> results = resultsIn(output);
-    assertEquals(2, results.size());
-    String firstEntry = "1. " + operator + "(" + angle + ") [" + mode + "] = " + results.getFirst();
-    String nextMode = mode.equals("DEG") ? "RAD" : "DEG";
-    String secondEntry = "2. " + operator + "(0) [" + nextMode + "] = " + results.getLast();
-    assertEquals(List.of(firstEntry, firstEntry, secondEntry), historyEntriesIn(output));
-    assertEquals(operator.equals("cos") ? "1" : "0", results.getLast());
-    assertEquals(2, occurrencesOf(output, "Rechenverlauf:"));
-    assertFalse(output.contains(EOF_MESSAGE));
-  }
-
-  @ParameterizedTest
-  @CsvSource({"DEG, 1", "RAD, 0.8939966636005579"})
-  void showingHistoryPreservesTheResultAndAngleMode(String mode, double expected) {
-    String output = runCalculator("""
-        90
-        %s
-        +
-        0
-        4
-        1
-        sin
-        3
-        """.formatted(mode.equals("RAD") ? "mode" : ""));
-
-    List<String> results = resultsIn(output);
-    assertEquals(2, results.size());
-    assertEquals("90", results.getFirst());
-    assertEquals(expected, Double.parseDouble(results.getLast()), TOLERANCE);
-    assertEquals(List.of("1. 90 + 0 = 90"), historyEntriesIn(output));
-    assertTrue(output.contains("Aktuelles Ergebnis: 90"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertFalse(output.contains(EOF_MESSAGE));
+    assertEquals(List.of("7"), resultsIn(output));
+    assertEquals(List.of("1. " + expression + " [DEG] = 7"), historyEntriesIn(output));
   }
 
   @Test
-  void canContinueWithAZeroResultAfterShowingHistory() {
-    String output = runCalculator("2\n-\n2\n4\n1\n+\n3\n3\n");
+  void startsEveryRunWithEmptyHistoryNoAnsAndDegrees() {
+    String first = runCalculator("mode\n2+3\n1\nans*2\n4\n3\n");
+    String second = runCalculator("ans\n4\n3\n");
 
-    assertEquals(List.of("0", "3"), resultsIn(output));
-    assertEquals(List.of("1. 2 - 2 = 0"), historyEntriesIn(output));
-    assertTrue(output.contains("Aktuelles Ergebnis: 0" + System.lineSeparator()));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertFalse(output.contains(EOF_MESSAGE));
+    assertEquals(List.of("1. 2+3 [RAD] = 5", "2. ans*2 [RAD, ans=5] = 10"), historyEntriesIn(first));
+    assertTrue(historyEntriesIn(second).isEmpty());
+    assertTrue(second.contains("Aktueller Winkelmodus: DEG"));
+    assertFalse(second.contains("Aktueller Winkelmodus: RAD"));
+    assertTrue(second.contains("kein letztes Ergebnis"));
+    assertTrue(second.contains("Noch keine erfolgreichen Berechnungen."));
+    assertFalse(second.contains("1. Mit dem Ergebnis weiterrechnen"));
   }
 
   @Test
-  void calculatesAbsoluteValuesAndContinuesWithThePreviousResult() {
-    String output = runCalculator("-5\nabs\n1\n-\n8\n1\nabs\n3\n");
+  void switchesModesWithoutResultsHistoryOrAnIntermediateMenu() {
+    String output = runCalculator(" \tmode \nmode\nsin(90)\n4\n3\n");
 
-    assertEquals(List.of("5", "-3", "3"), resultsIn(output));
-    assertTrue(output.contains("abs    Betrag"));
-    assertTrue(output.contains("Aktuelles Ergebnis: -3"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"pi", "PI", "Pi", "pI"})
-  void acceptsPiAsTheFirstOperand(String pi) {
-    String output = runCalculator(pi + "\n+\n0\n3\n");
-
-    assertEquals(List.of(Double.toString(Math.PI)), resultsIn(output));
-    assertTrue(output.contains("Du kannst pi (auch PI oder Pi) statt einer Zahl eingeben."));
-    assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"pi", "PI", "Pi", "pI"})
-  void acceptsPiAsTheSecondOperand(String pi) {
-    String output = runCalculator("2\n+\n" + pi + "\n3\n");
-
-    assertEquals(List.of(Double.toString(2 + Math.PI)), resultsIn(output));
-    assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
-  }
-
-  @Test
-  void acceptsPiAsTheExponent() {
-    String output = runCalculator("2\npower\npi\n3\n");
-
-    assertEquals(List.of(Double.toString(Math.pow(2, Math.PI))), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Gib den Exponent ein: "));
-  }
-
-  @Test
-  void acceptsPiWhenContinuingWithThePreviousResult() {
-    String output = runCalculator("2\n+\n3\n1\n*\npi\n3\n");
-
-    assertEquals(List.of("5", Double.toString(5 * Math.PI)), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertTrue(output.contains("Aktuelles Ergebnis: 5"));
-  }
-
-  @Test
-  void rejectsOtherConstantsAndAcceptsPiOnRetry() {
-    String output = runCalculator("tau\npi\n+\n0\n3\n");
-
-    assertEquals(List.of(Double.toString(Math.PI)), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
-    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"e", "E"})
-  void acceptsEulerNumberAsTheFirstOperand(String e) {
-    String output = runCalculator(e + "\n+\n0\n3\n");
-
-    assertEquals(List.of(Double.toString(Math.E)), resultsIn(output));
-    assertTrue(output.contains("Du kannst auch e oder E für die Eulersche Zahl eingeben."));
-    assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"e", "E"})
-  void acceptsEulerNumberAsTheSecondOperand(String e) {
-    String output = runCalculator("2\n+\n" + e + "\n3\n");
-
-    assertEquals(List.of(Double.toString(2 + Math.E)), resultsIn(output));
-    assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"e", "E"})
-  void acceptsEulerNumberAsTheExponent(String e) {
-    String output = runCalculator("2\npower\n" + e + "\n3\n");
-
-    assertEquals(List.of(Double.toString(Math.pow(2, Math.E))), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Gib den Exponent ein: "));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"e", "E"})
-  void acceptsEulerNumberWhenContinuingWithThePreviousResult(String e) {
-    String output = runCalculator("2\n+\n3\n1\n*\n" + e + "\n3\n");
-
-    assertEquals(List.of("5", Double.toString(5 * Math.E)), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertTrue(output.contains("Aktuelles Ergebnis: 5"));
-  }
-
-  @ParameterizedTest
-  @CsvSource({"0, 0", "90, 1", "180, 0", "-90, -1"})
-  void calculatesSineInDegreesByDefault(int angle, double expected) {
-    String output = runCalculator(angle + "\nsin\n3\n");
-
-    assertEquals(1, resultsIn(output).size());
-    assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
-    assertTrue(output.contains("Aktueller Winkelmodus: DEG"));
-    assertTrue(output.contains("sin    Sinus"));
-    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @Test
-  void calculatesSineInRadiansFromAPreviousDivisionResult() {
-    String output = runCalculator("pi\n/\n2\n1\nmode\nsin\n3\n");
-
-    List<String> results = resultsIn(output);
-    assertEquals(2, results.size());
-    assertEquals(Math.PI / 2, Double.parseDouble(results.get(0)), TOLERANCE);
-    assertEquals(1, Double.parseDouble(results.get(1)), TOLERANCE);
-    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-    assertEquals(2, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
-  }
-
-  @Test
-  void switchesBackToDegreesWithoutCalculatingOrRequestingAnotherNumber() {
-    String output = runCalculator("90\nmode\nmode\nsin\n3\n");
-
-    assertEquals(1, resultsIn(output).size());
-    assertEquals(1, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertEquals(List.of("1"), resultsIn(output));
+    assertEquals(List.of("1. sin(90) [DEG] = 1"), historyEntriesIn(output));
     assertEquals(2, occurrencesOf(output, "Aktueller Winkelmodus: DEG"));
     assertEquals(1, occurrencesOf(output, "Aktueller Winkelmodus: RAD"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-    assertEquals(1, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
+    assertEquals(3, occurrencesOf(output, EXPRESSION_PROMPT));
+    assertEquals(2, occurrencesOf(output, FULL_MENU));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"MODE", "mode()", "mode+1", "sin(0) mode"})
+  void recognizesModeOnlyAsAStandaloneLowercaseCommand(String expression) {
+    String output = runCalculator(expression + "\n3\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Fehler:"));
+    assertFalse(output.contains("Aktueller Winkelmodus: RAD"));
+    assertTrue(output.contains(NO_RESULT_MENU));
   }
 
   @Test
-  void preservesTheLastResultAndAngleModeAfterAFailedContinuation() {
-    String output = runCalculator("90\n+\n0\n1\nmode\n/\n0\n1\nsin\n3\n");
+  void switchesToRadiansWhileContinuingWithAns() {
+    String output = runCalculator("pi/2\n1\nmode\nsin(ans)\n4\n3\n");
 
+    assertEquals(2, resultsIn(output).size());
+    assertEquals(Math.PI / 2, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertEquals("1", resultsIn(output).getLast());
+    assertEquals(List.of("1. pi/2 [DEG] = " + Math.PI / 2,
+        "2. sin(ans) [RAD, ans=" + Math.PI / 2 + "] = 1"), historyEntriesIn(output));
+    assertEquals(1, occurrencesOf(output, "Aktuelles Ergebnis: "));
+  }
+
+  @Test
+  void preservesResultAndAngleModeAfterErrorsAndKeepsModeOnRestart() {
+    String output = runCalculator("90\n1\nmode\nans/0\n1\nsin(ans)\n2\nsin(90)\n3\n");
     List<String> results = resultsIn(output);
-    assertEquals(2, results.size());
-    assertEquals("90", results.get(0));
+
+    assertEquals(3, results.size());
+    assertEquals("90", results.getFirst());
     assertEquals(Math.sin(90), Double.parseDouble(results.get(1)), TOLERANCE);
-    assertTrue(output.contains("Fehler: Division durch null ist nicht erlaubt."));
+    assertEquals(results.get(1), results.getLast());
     assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: 90"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(3, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
-  }
-
-  @Test
-  void preservesTheAngleModeWhenStartingANewCalculation() {
-    String output = runCalculator("pi\nmode\nsin\n2\npi\nsin\n3\n");
-
-    List<String> results = resultsIn(output);
-    assertEquals(2, results.size());
-    assertEquals(0, Double.parseDouble(results.get(0)), TOLERANCE);
-    assertEquals(0, Double.parseDouble(results.get(1)), TOLERANCE);
-    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
     assertEquals(1, occurrencesOf(output, "Aktueller Winkelmodus: RAD"));
   }
 
   @Test
-  void leavesArithmeticAndConstantsUnchangedInRadiansMode() {
-    String output = runCalculator("e\nmode\n+\npi\n3\n");
+  void preservesHistoricalModesAndAnsValuesWhenDisplayingHistory() {
+    String output = runCalculator("sin(90)\n4\n2\nmode\nsin(pi/2)\n4\n1\nmode\ncos(ans*60)\n4\n3\n");
+    List<String> results = resultsIn(output);
 
-    assertEquals(1, resultsIn(output).size());
-    assertEquals(Math.E + Math.PI, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
-    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertEquals(3, results.size());
+    assertEquals("1", results.get(0));
+    assertEquals("1", results.get(1));
+    assertEquals(0.5, Double.parseDouble(results.get(2)), TOLERANCE);
+    assertEquals(List.of("1. sin(90) [DEG] = 1",
+        "1. sin(90) [DEG] = 1", "2. sin(pi/2) [RAD] = 1",
+        "1. sin(90) [DEG] = 1", "2. sin(pi/2) [RAD] = 1",
+        "3. cos(ans*60) [DEG, ans=1] = " + results.getLast()), historyEntriesIn(output));
   }
 
   @ParameterizedTest
-  @CsvSource({"0, 1", "60, 0.5", "90, 0", "180, -1"})
-  void calculatesCosineInDegreesByDefault(int angle, double expected) {
-    String output = runCalculator(angle + "\ncos\n3\n");
+  @CsvSource(value = {
+      "2+3 | 5", "5-2 | 3", "5*2 | 10", "5/2 | 2.5",
+      "sqrt(9) | 3", "abs(-2.75) | 2.75", "log(100) | 2", "log(0.1) | -1",
+      "ln(e) | 1", "ln(0.5) | -0.6931471805599453",
+      "factorial(0) | 1", "factorial(5) | 120", "factorial(20) | 2432902008176640000",
+      "power(2,3) | 8", "root(27,3) | 3", "root(25,2) | 5",
+      "root(-27,3) | -3", "root(-32,5) | -2", "root(0,3) | 0"
+  }, delimiter = '|')
+  void evaluatesExistingNonAngularOperationsInBothModes(String expression, double expected) {
+    for (String prefix : List.of("", "mode\n")) {
+      String output = runCalculator(prefix + expression + "\n4\n3\n");
+
+      assertEquals(1, resultsIn(output).size());
+      assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+      String mode = prefix.isEmpty() ? "DEG" : "RAD";
+      assertEquals(List.of("1. " + expression + " [" + mode + "] = " + resultsIn(output).getFirst()),
+          historyEntriesIn(output));
+      assertFalse(output.contains("Fehler:"));
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource(value = {
+      "sqrt(-1) | Quadratwurzel einer negativen Zahl",
+      "5/0 | Division durch null", "1/-0.0 | Division durch null",
+      "log(0) | Logarithmus ist nur für Zahlen größer als null", "log(-1) | Logarithmus ist nur für Zahlen größer als null",
+      "ln(0) | Logarithmus ist nur für Zahlen größer als null", "ln(-1) | Logarithmus ist nur für Zahlen größer als null",
+      "factorial(-1) | nichtnegative ganze Zahlen", "factorial(2.5) | nichtnegative ganze Zahlen",
+      "factorial(21) | Werte von 0 bis 20",
+      "root(-16,4) | gerade Wurzel aus einer negativen Zahl", "root(27,0) | positive ganze Zahl",
+      "root(27,-3) | positive ganze Zahl", "root(27,2.5) | positive ganze Zahl",
+      "power(-2,0.5) | kein endliches Ergebnis", "power(1e308,2) | kein endliches Ergebnis",
+      "1e308+1e308 | kein endliches Ergebnis", "1e309 | Zahl muss endlich sein"
+  }, delimiter = '|')
+  void reportsMathErrorsWithoutHistoryAndAllowsANewCalculation(String expression, String message) {
+    String output = runCalculator(expression + "\n4\n2\nsqrt(25)\n3\n");
+
+    assertEquals(List.of("5"), resultsIn(output));
+    assertTrue(output.contains("Fehler:"));
+    assertTrue(output.contains(message));
+    assertTrue(historyEntriesIn(output).isEmpty());
+    assertTrue(output.contains("Noch keine erfolgreichen Berechnungen."));
+    String beforeSuccess = output.substring(0, output.indexOf("Das Ergebnis ist: 5"));
+    assertFalse(beforeSuccess.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @CsvSource(value = {
+      "-1 | log(ans) | 0", "-1 | ln(ans) | 0", "-1 | sqrt(ans) | 0",
+      "-1 | factorial(ans) | 0", "2.5 | factorial(ans) | 3.5",
+      "21 | factorial(ans) | 22", "-16 | root(ans,4) | -15",
+      "27 | root(ans,0) | 28", "27 | root(ans,-3) | 28",
+      "27 | root(ans,2.5) | 28", "90 | tan(ans) | 91"
+  }, delimiter = '|')
+  void preservesAnsAfterScientificFunctionErrors(String initial, String failedExpression, double expected) {
+    String output = runCalculator(initial + "\n1\n" + failedExpression + "\n4\n1\nans+1\n3\n");
+
+    assertEquals(2, resultsIn(output).size());
+    assertEquals(expected, Double.parseDouble(resultsIn(output).getLast()), TOLERANCE);
+    assertEquals(List.of("1. " + initial + " [DEG] = " + initial), historyEntriesIn(output));
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: " + initial));
+    assertEquals(1, occurrencesOf(output, "Fehler:"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"NaN", "Infinity", "-Infinity", "cos(NaN)", "tan(Infinity)",
+      "root(27,NaN)", "root(Infinity,3)", "root(27,-Infinity)", "sin(1e309)"})
+  void rejectsNonFiniteInputTokensAndFunctionOperands(String expression) {
+    String output = runCalculator(expression + "\n4\n3\n");
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(historyEntriesIn(output).isEmpty());
+    assertTrue(output.contains("Fehler:"));
+    assertTrue(output.contains(NO_RESULT_MENU));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"pi", "PI", "Pi", "pI", "e", "E"})
+  void acceptsConstantsAsFirstOperands(String constant) {
+    String output = runCalculator(constant + "+0\n3\n");
+
+    assertEquals(List.of(Double.toString(constantValue(constant))), resultsIn(output));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"pi", "PI", "Pi", "pI", "e", "E"})
+  void acceptsConstantsAsSecondOperands(String constant) {
+    String output = runCalculator("2+" + constant + "\n3\n");
+
+    assertEquals(List.of(Double.toString(2 + constantValue(constant))), resultsIn(output));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"pi", "PI", "Pi", "pI", "e", "E"})
+  void acceptsConstantsAsExponents(String constant) {
+    String output = runCalculator("power(2," + constant + ")\n3\n");
+
+    assertEquals(List.of(Double.toString(Math.pow(2, constantValue(constant)))), resultsIn(output));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"pi", "PI", "Pi", "pI", "e", "E"})
+  void acceptsConstantsWhenContinuingWithAns(String constant) {
+    String output = runCalculator("2+3\n1\nans*" + constant + "\n3\n");
+
+    assertEquals(List.of("5", Double.toString(5 * constantValue(constant))), resultsIn(output));
+    assertTrue(output.contains("Aktuelles Ergebnis: 5"));
+  }
+
+  private static double constantValue(String constant) {
+    return constant.equalsIgnoreCase("pi") ? Math.PI : Math.E;
+  }
+
+  @ParameterizedTest
+  @CsvSource(value = {
+      "sin(0) | 0", "sin(90) | 1", "sin(180) | 0", "sin(-90) | -1",
+      "cos(0) | 1", "cos(60) | 0.5", "cos(90) | 0", "cos(180) | -1",
+      "tan(0) | 0", "tan(30) | 0.5773502691896257", "tan(45) | 1",
+      "tan(60) | 1.7320508075688772", "tan(135) | -1", "tan(180) | 0",
+      "tan(-30) | -0.5773502691896257", "tan(-45) | -1",
+      "tan(-60) | -1.7320508075688772", "tan(-135) | 1"
+  }, delimiter = '|')
+  void calculatesTrigonometricExpressionsInDegreesByDefault(String expression, double expected) {
+    String output = runCalculator(expression + "\n3\n");
 
     assertEquals(1, resultsIn(output).size());
     assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
     assertTrue(output.contains("Aktueller Winkelmodus: DEG"));
-    assertTrue(output.contains("cos    Kosinus"));
-    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @Test
-  void calculatesCosineOfPiInRadiansMode() {
-    String output = runCalculator("pi\nmode\ncos\n3\n");
-
-    assertEquals(1, resultsIn(output).size());
-    assertEquals(-1, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
-    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
-    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @Test
-  void calculatesCosineWhenContinuingWithThePreviousResult() {
-    String output = runCalculator("30\n*\n2\n1\ncos\n3\n");
-
-    List<String> results = resultsIn(output);
-    assertEquals(2, results.size());
-    assertEquals("60", results.get(0));
-    assertEquals(0.5, Double.parseDouble(results.get(1)), TOLERANCE);
-    assertTrue(output.contains("Aktuelles Ergebnis: 60"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+    assertFalse(output.contains("Fehler:"));
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"NaN", "Infinity", "-Infinity"})
-  void rejectsNonFiniteCosineAngles(String angle) {
-    String output = runCalculator(angle + "\ncos\n3\n");
-
-    assertTrue(resultsIn(output).isEmpty());
-    assertTrue(output.contains("Fehler: Operanden müssen endliche Zahlen sein"));
-    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
-    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @ParameterizedTest
-  @CsvSource({
-      "0, 0", "30, 0.5773502691896257", "45, 1", "60, 1.7320508075688772",
-      "135, -1", "180, 0", "-30, -0.5773502691896257", "-45, -1",
-      "-60, -1.7320508075688772", "-135, 1"
-  })
-  void calculatesTangentInDegreesByDefault(int angle, double expected) {
-    String output = runCalculator(angle + "\ntan\n3\n");
+  @CsvSource(value = {"sin(pi/2) | 1", "cos(pi) | -1", "tan(pi/4) | 1"}, delimiter = '|')
+  void calculatesTrigonometricExpressionsInRadians(String expression, double expected) {
+    String output = runCalculator("mode\n" + expression + "\n3\n");
 
     assertEquals(1, resultsIn(output).size());
     assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
-    assertTrue(output.contains("tan    Tangens"));
-    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
+    assertFalse(output.contains("Fehler:"));
   }
 
   @ParameterizedTest
   @ValueSource(ints = {90, 270, 990, -90, -270, -990, 450, -450, 1350, -1350})
   void rejectsTangentSingularitiesInDegrees(int angle) {
-    String output = runCalculator(angle + "\ntan\n3\n");
+    String output = runCalculator("tan(" + angle + ")\n4\n3\n");
 
     assertTrue(resultsIn(output).isEmpty());
+    assertTrue(historyEntriesIn(output).isEmpty());
     assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
     assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
-    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @Test
-  void rejectsTangentOfHalfPiInRadiansAndKeepsThePreviousResult() {
-    String output = runCalculator("pi\n/\n2\n1\nmode\ntan\n1\n+\n1\n3\n");
-
-    List<String> results = resultsIn(output);
-    assertEquals(2, results.size());
-    assertEquals(Math.PI / 2, Double.parseDouble(results.get(0)), TOLERANCE);
-    assertEquals(Math.PI / 2 + 1, Double.parseDouble(results.get(1)), TOLERANCE);
-    assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
-    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
-    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: " + Math.PI / 2));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
   }
 
   @ParameterizedTest
   @ValueSource(ints = {90, 270, 990, -90, -270, -990})
-  void keepsThePreviousResultAfterAFailedTangentInDegrees(int angle) {
-    String output = runCalculator(angle + "\n+\n0\n1\ntan\n1\n+\n1\n3\n");
+  void keepsThePreviousResultAfterFailedTangentInDegrees(int angle) {
+    String output = runCalculator(angle + "\n1\ntan(ans)\n1\nans+1\n3\n");
 
     assertEquals(List.of(Integer.toString(angle), Integer.toString(angle + 1)), resultsIn(output));
     assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
     assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: " + angle));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+  }
+
+  @Test
+  void rejectsTangentOfHalfPiInRadiansAndKeepsThePreviousResult() {
+    String output = runCalculator("pi/2\n1\nmode\ntan(ans)\n1\nans+1\n3\n");
+
+    assertEquals(2, resultsIn(output).size());
+    assertEquals(Math.PI / 2, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertEquals(Math.PI / 2 + 1, Double.parseDouble(resultsIn(output).getLast()), TOLERANCE);
+    assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: " + Math.PI / 2));
   }
 
   @Test
   void calculatesTangentWhileSwitchingBetweenRadiansAndDegrees() {
-    String output = runCalculator("pi\n/\n4\n1\nmode\ntan\n2\n45\nmode\ntan\n3\n");
+    String output = runCalculator("pi/4\n1\nmode\ntan(ans)\n2\nmode\ntan(45)\n3\n");
 
-    List<String> results = resultsIn(output);
-    assertEquals(3, results.size());
-    assertEquals(Math.PI / 4, Double.parseDouble(results.get(0)), TOLERANCE);
-    assertEquals(1, Double.parseDouble(results.get(1)), TOLERANCE);
-    assertEquals(1, Double.parseDouble(results.get(2)), TOLERANCE);
+    assertEquals(3, resultsIn(output).size());
+    assertEquals(Math.PI / 4, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
+    assertEquals(1, Double.parseDouble(resultsIn(output).get(1)), TOLERANCE);
+    assertEquals(1, Double.parseDouble(resultsIn(output).getLast()), TOLERANCE);
     assertEquals(1, occurrencesOf(output, "Aktueller Winkelmodus: RAD"));
     assertEquals(2, occurrencesOf(output, "Aktueller Winkelmodus: DEG"));
-    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
   }
 
   @ParameterizedTest
   @ValueSource(ints = {90, 270, 990, 1350, 1890, -90, -270, -990, -1350, -1890})
   void acceptsRepresentableDegreeAnglesNextToTangentSingularities(int singularity) {
     for (double angle : new double[] {Math.nextDown((double) singularity), Math.nextUp((double) singularity)}) {
-      String output = runCalculator(angle + "\ntan\n3\n");
+      String output = runCalculator("tan(" + angle + ")\n3\n");
+      // cot(delta) ist bei diesen Abständen bis auf double-Rundungen gleich 1/delta.
+      double expected = 1.0 / Math.toRadians(singularity - angle);
 
       assertEquals(1, resultsIn(output).size());
-      // Für diese winzigen Abstände ist cot(delta) = 1/delta bis auf einen
-      // relativen Fehler weit unter der double-Genauigkeit.
-      double expected = 1.0 / Math.toRadians(singularity - angle);
       assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), Math.abs(expected) * TOLERANCE);
       assertFalse(output.contains("Fehler:"));
-      assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
     }
   }
 
   @ParameterizedTest
   @ValueSource(strings = {"89.999999999999999", "90.000000000000001"})
-  void rejectsDegreeInputsAlreadyRoundedToASingularity(String input) {
-    // Die ursprünglichen Dezimalwerte lassen sich nach dem Einlesen als double
-    // nicht mehr von exakt 90 Grad unterscheiden.
-    assertEquals(90.0, Double.parseDouble(input));
-    String output = runCalculator(input + "\ntan\n3\n");
+  void rejectsDegreeInputsAlreadyRoundedToASingularity(String angle) {
+    assertEquals(90, Double.parseDouble(angle));
+    String output = runCalculator("tan(" + angle + ")\n3\n");
 
     assertTrue(resultsIn(output).isEmpty());
     assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
@@ -780,11 +610,11 @@ class CalculatorTest {
   @ValueSource(ints = {1, 3, 11, -1, -3, -11})
   void keepsTangentSingularityRulesInRadians(int oddMultiple) {
     double angle = oddMultiple * Math.PI / 2;
-    String output = runCalculator(angle + "\nmode\ntan\n3\n");
+    String output = runCalculator("mode\ntan(" + angle + ")\n3\n");
 
     assertTrue(resultsIn(output).isEmpty());
-    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
     assertTrue(output.contains("Fehler: Tangens ist für diesen Winkel nicht definiert."));
+    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
   }
 
   @ParameterizedTest
@@ -792,343 +622,251 @@ class CalculatorTest {
   void keepsTangentNeighborValuesInRadians(int oddMultiple) {
     double singularity = oddMultiple * Math.PI / 2;
     for (double angle : new double[] {Math.nextDown(singularity), Math.nextUp(singularity)}) {
-      String output = runCalculator(angle + "\nmode\ntan\n3\n");
+      String output = runCalculator("mode\ntan(" + angle + ")\n3\n");
       double expected = Math.tan(angle);
 
       assertEquals(1, resultsIn(output).size());
       assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), 2 * Math.ulp(expected));
-      assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
       assertFalse(output.contains("Fehler:"));
     }
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"NaN", "Infinity", "-Infinity"})
-  void rejectsNonFiniteTangentAngles(String angle) {
-    String output = runCalculator(angle + "\ntan\n3\n");
-
-    assertTrue(resultsIn(output).isEmpty());
-    assertTrue(output.contains("Fehler: Operanden müssen endliche Zahlen sein"));
-    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
-  }
-
-  @ParameterizedTest
-  @CsvSource({"log, 100, 2", "ln, e, 1", "log, 0.1, -1", "ln, 0.5, -0.6931471805599453"})
-  void calculatesLogarithmsAsUnaryOperationsInBothAngleModes(String operator, String number, double expected) {
-    for (String modeCommand : List.of("", "mode\n")) {
-      String output = runCalculator(number + "\n" + modeCommand + operator + "\n3\n");
-
-      assertEquals(1, resultsIn(output).size());
-      assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
-      assertTrue(output.contains("log    Dekadischer Logarithmus (Basis 10)"));
-      assertTrue(output.contains("ln     Natürlicher Logarithmus (Basis e)"));
-      assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-      assertEquals(0, occurrencesOf(output, "Gib den Exponent ein: "));
-      if (!modeCommand.isEmpty()) {
-        assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
-      }
-    }
-  }
-
-  @ParameterizedTest
-  @CsvSource({"log, 0", "ln, 0", "log, -1", "ln, -1"})
-  void reportsNonPositiveLogarithmInputs(String operator, String number) {
-    String output = runCalculator(number + "\n" + operator + "\n3\n");
-
-    assertTrue(resultsIn(output).isEmpty());
-    assertTrue(output.contains("Fehler:"));
-    assertTrue(output.contains("Logarithmus ist nur für Zahlen größer als null definiert."));
-    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
-    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"log", "ln"})
-  void keepsThePreviousResultAfterAFailedLogarithm(String operator) {
-    String output = runCalculator("2\n-\n3\n1\n" + operator + "\n1\nabs\n3\n");
-
-    assertEquals(List.of("-1", "1"), resultsIn(output));
-    assertTrue(output.contains("Fehler:"));
-    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: -1"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @Test
-  void continuesFromADecimalLogarithmWithANaturalLogarithm() {
-    String output = runCalculator("1000\nlog\n1\nln\n3\n");
-
-    List<String> results = resultsIn(output);
-    assertEquals(2, results.size());
-    assertEquals(3, Double.parseDouble(results.get(0)), TOLERANCE);
-    assertEquals(1.0986122886681098, Double.parseDouble(results.get(1)), TOLERANCE);
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @ParameterizedTest
-  @CsvSource({"0, 1", "5, 120", "20, 2432902008176640000"})
-  void calculatesFactorialsAsUnaryOperationsInBothAngleModes(int number, long expected) {
-    for (String modeCommand : List.of("", "mode\n")) {
-      String output = runCalculator(number + "\n" + modeCommand + "factorial\n3\n");
-
-      assertEquals(List.of(Long.toString(expected)), resultsIn(output));
-      assertTrue(output.contains("factorial  Fakultät"));
-      assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-      assertEquals(0, occurrencesOf(output, "Gib den Exponent ein: "));
-      if (!modeCommand.isEmpty()) {
-        assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
-      }
-    }
-  }
-
-  @ParameterizedTest
   @CsvSource({
-      "-1, Die Fakultät ist nur für nichtnegative ganze Zahlen definiert.",
-      "2.5, Die Fakultät ist nur für nichtnegative ganze Zahlen definiert.",
-      "21, Für die Fakultät sind nur Werte von 0 bis 20 erlaubt."
+      "3.14, 3.14", "0.5, 0.5", "-2.75, -2.75", "42, 42", "42.0, 42", "-0.0, -0",
+      "+3.5, 3.5", ".5, 0.5", "3., 3", "1.25e-7, 1.25E-7", "-2.75E-4, -2.75E-4",
+      "1e20, 100000000000000000000"
   })
-  void reportsInvalidFactorialOperands(String number, String expectedMessage) {
-    String output = runCalculator(number + "\nfactorial\n3\n");
+  void preservesDecimalFormattingRegardlessOfScannerLocale(String expression, String expected) {
+    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
+      String output = runCalculator(expression + "\n4\n3\n", locale);
 
-    assertTrue(resultsIn(output).isEmpty());
-    assertTrue(output.contains("Fehler: " + expectedMessage));
-    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
-    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @Test
-  void continuesWithAFactorialResult() {
-    String output = runCalculator("2\n+\n3\n1\nfactorial\n1\n/\n2\n3\n");
-
-    assertEquals(List.of("5", "120", "60"), resultsIn(output));
-    assertTrue(output.contains("Aktuelles Ergebnis: 120"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(2, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @ParameterizedTest
-  @CsvSource({"-1, 0", "2.5, 3.5", "21, 22"})
-  void keepsThePreviousResultAfterAFailedFactorial(String number, String expectedFinalResult) {
-    String output = runCalculator(number + "\n+\n0\n1\nfactorial\n1\n+\n1\n3\n");
-
-    assertEquals(List.of(number, expectedFinalResult), resultsIn(output));
-    assertTrue(output.contains("Fehler:"));
-    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: " + number));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(2, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @ParameterizedTest
-  @CsvSource({"27, 3, 3", "25, 2, 5", "-27, 3, -3", "-32, 5, -2", "0, 3, 0"})
-  void calculatesNthRootsInBothAngleModes(String number, String root, double expected) {
-    for (String modeCommand : List.of("", "mode\n")) {
-      String output = runCalculator(number + "\n" + modeCommand + "root\n" + root + "\n3\n");
-
-      assertEquals(1, resultsIn(output).size());
-      assertEquals(expected, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
-      assertTrue(output.contains("root   n-te Wurzel"));
-      assertEquals(1, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
-      assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-      assertEquals(0, occurrencesOf(output, "Gib den Exponent ein: "));
-      if (!modeCommand.isEmpty()) {
-        assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
-      }
+      assertEquals(List.of(expected), resultsIn(output), locale.toLanguageTag());
+      assertEquals(List.of("1. " + expression + " [DEG] = " + expected), historyEntriesIn(output));
+      assertFalse(output.contains("Fehler:"));
     }
   }
 
   @ParameterizedTest
-  @CsvSource({
-      "-16, 4, Eine gerade Wurzel aus einer negativen Zahl ist nicht erlaubt.",
-      "27, 0, Der Wurzelexponent muss eine positive ganze Zahl sein.",
-      "27, -3, Der Wurzelexponent muss eine positive ganze Zahl sein.",
-      "27, 2.5, Der Wurzelexponent muss eine positive ganze Zahl sein."
-  })
-  void reportsInvalidNthRootInputsAndAllowsANewCalculation(String number, String root, String expectedMessage) {
-    String output = runCalculator(number + "\nroot\n" + root + "\n2\n25\nsqrt\n3\n");
+  @ValueSource(strings = {"3,14", "0,5", "-2,75", "1,234", "-1,234", "+1,234",
+      "1,234.56", "1,234e2", "1,234,567", "1.234,56", "0x1.6p1", "٣.٥"})
+  void rejectsFormatsOutsideEvaluatorSyntaxAndAllowsACorrectedExpression(String expression) {
+    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
+      String output = runCalculator(expression + "\n2\n3.14\n3\n", locale);
 
-    assertEquals(List.of("5"), resultsIn(output));
-    assertTrue(output.contains("Fehler: " + expectedMessage));
-    assertEquals(1, occurrencesOf(output, "1. Mit dem Ergebnis weiterrechnen"));
-    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(1, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
+      assertEquals(List.of("3.14"), resultsIn(output), locale.toLanguageTag());
+      assertEquals(1, occurrencesOf(output, "Fehler:"));
+      assertEquals(2, occurrencesOf(output, EXPRESSION_PROMPT));
+      assertTrue(output.contains(NO_RESULT_MENU));
+      assertFalse(output.contains(EOF_MESSAGE));
+    }
   }
 
   @ParameterizedTest
-  @CsvSource({"NaN, 3", "Infinity, 3", "-Infinity, 3", "27, NaN", "27, Infinity", "27, -Infinity"})
-  void rejectsNonFiniteNthRootInputs(String number, String root) {
-    String output = runCalculator(number + "\nroot\n" + root + "\n3\n");
+  @ValueSource(strings = {"abc", "2+", "()", "(1+2", "1+2)", "1 2", "sqrt()",
+      "sqrt(1,2)", "power(2)", "power(2,,3)", "Sin(90)", "2pi", "2^3"})
+  void reportsSyntaxErrorsAndAllowsANewExpression(String expression) {
+    String output = runCalculator(expression + "\n2\n2+2\n3\n");
 
-    assertTrue(resultsIn(output).isEmpty());
-    assertTrue(output.contains("Fehler: Operanden müssen endliche Zahlen sein"));
-    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
-  }
-
-  @Test
-  void retriesANonNumericRootExponent() {
-    String output = runCalculator("27\nroot\nthree\n3\n3\n");
-
-    assertEquals(1, resultsIn(output).size());
-    assertEquals(3, Double.parseDouble(resultsIn(output).getFirst()), TOLERANCE);
-    assertEquals(1, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
-    assertEquals(2, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
-  }
-
-  @Test
-  void continuesWithNthRootResultsAndUsesThePreviousResultAsARadicand() {
-    String output = runCalculator("16\nroot\n4\n1\npower\n4\n1\nroot\n2\n1\n+\n1\n3\n");
-
-    assertEquals(List.of("2", "16", "4", "5"), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(2, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
-    assertTrue(output.contains("Aktuelles Ergebnis: 16"));
+    assertEquals(List.of("4"), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Fehler:"));
+    assertTrue(output.contains("Position"));
+    assertTrue(output.contains(NO_RESULT_MENU));
+    assertFalse(output.contains(EOF_MESSAGE));
   }
 
   @ParameterizedTest
-  @CsvSource({"-16, 4, 1, -16", "27, 0, 3, 3", "27, -3, 3, 3", "27, 2.5, 3, 3"})
-  void keepsThePreviousResultAfterAFailedNthRoot(String number, String invalidRoot,
-                                                String validRoot, double expected) {
-    String output = runCalculator(number + "\n+\n0\n1\nroot\n" + invalidRoot
-        + "\n1\nroot\n" + validRoot + "\n3\n");
+  @ValueSource(strings = {"de-DE", "en-US"})
+  void usesDecimalPointsAndArgumentSeparatorsWhenContinuing(String localeTag) {
+    String output = runCalculator("""
+        2+3,14
+        2
+        2+0.5
+        1
+        power(ans,2,0)
+        1
+        power(ans,2)
+        1
+        root(ans,2,0)
+        1
+        root(ans,2)
+        4
+        3
+        """, Locale.forLanguageTag(localeTag));
 
+    assertEquals(List.of("2.5", "6.25", "2.5"), resultsIn(output));
+    assertEquals(3, occurrencesOf(output, "Fehler:"));
+    assertEquals(List.of("1. 2+0.5 [DEG] = 2.5", "2. power(ans,2) [DEG, ans=2.5] = 6.25",
+        "3. root(ans,2) [DEG, ans=6.25] = 2.5"), historyEntriesIn(output));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {Double.MIN_VALUE, -0.0, Math.PI, Math.E, 1e20})
+  void reentersDisplayedNumbersWithTheSameDoubleValueWhenTheyFitTheInputLimit(double number) {
+    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
+      String output = runCalculator(Double.toString(number) + "\n3\n", locale);
+      assertEquals(1, resultsIn(output).size());
+      String displayed = resultsIn(output).getFirst();
+
+      String repeated = runCalculator(displayed + "\n3\n", locale);
+      assertEquals(1, resultsIn(repeated).size());
+      assertEquals(Double.doubleToLongBits(number),
+          Double.doubleToLongBits(Double.parseDouble(resultsIn(repeated).getFirst())));
+    }
+  }
+
+  @Test
+  void acceptsDoubleMaxInScientificNotationButRejectsItsOversizedFormattedIntegerOnReentry() {
+    String output = runCalculator(Double.toString(Double.MAX_VALUE) + "\n1\nans\n3\n");
+    assertEquals(2, resultsIn(output).size());
+    String displayed = resultsIn(output).getFirst();
+    assertEquals(displayed, resultsIn(output).getLast());
+    assertTrue(displayed.length() > 256);
+
+    String repeated = runCalculator(displayed + "\n3\n");
+    assertTrue(resultsIn(repeated).isEmpty());
+    assertTrue(repeated.contains("höchstens 256 Zeichen"));
+    assertTrue(repeated.contains(NO_RESULT_MENU));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("expressionBoundaries")
+  void enforcesEveryInputLimitThroughTheConsole(String scenario, String valid, String invalid,
+      double expected, String message) {
+    String output = runCalculator(valid + "\n1\n" + invalid + "\n4\n1\nans+1\n3\n");
     List<String> results = resultsIn(output);
-    assertEquals(2, results.size());
-    assertEquals(number, results.getFirst());
-    assertEquals(expected, Double.parseDouble(results.get(1)), TOLERANCE);
-    assertTrue(output.contains("Fehler:"));
-    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: " + number));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+
+    assertEquals(2, results.size(), scenario);
+    assertEquals(expected, Double.parseDouble(results.getFirst()), TOLERANCE, scenario);
+    assertEquals(expected + 1, Double.parseDouble(results.getLast()), TOLERANCE, scenario);
+    assertEquals(List.of("1. " + valid + " [DEG] = " + results.getFirst()), historyEntriesIn(output));
+    assertEquals(1, occurrencesOf(output, "Fehler:"), scenario);
+    assertTrue(output.contains(message), scenario);
+    assertEquals(3, occurrencesOf(output, EXPRESSION_PROMPT), scenario);
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: "), scenario);
+    assertFalse(output.contains(EOF_MESSAGE), scenario);
+  }
+
+  private static Stream<Arguments> expressionBoundaries() {
+    String length = " ".repeat(127) + "1" + " ".repeat(128);
+    String binary = "1" + "+1".repeat(50);
+    String mixed = "+" + "abs(1)+".repeat(24) + "abs(1)";
+    String parentheses = "(".repeat(16) + "1" + ")".repeat(16);
+    String functions = "abs(".repeat(16) + "1" + ")".repeat(16);
+    String mixedDepth = "(".repeat(8) + "abs(".repeat(8) + "1" + ")".repeat(16);
+    String scientific = "1e-3" + "+1".repeat(50);
+    String combined = "(".repeat(15) + "+".repeat(49) + "abs(1)" + ")".repeat(15);
+    combined += " ".repeat(256 - combined.length());
+    return Stream.of(
+        Arguments.of("256/257 Zeichen einschließlich Leerzeichen", length, length + " ", 1, "höchstens 256 Zeichen"),
+        Arguments.of("50/51 binäre Operationen", binary, binary + "+1", 51, "höchstens 50 Operationen"),
+        Arguments.of("50/51 unäre Vorzeichen", "+".repeat(50) + "1", "+".repeat(51) + "1", 1,
+            "höchstens 50 Operationen"),
+        Arguments.of("50/51 gemischte Operationen", mixed, mixed + "+1", 25, "höchstens 50 Operationen"),
+        Arguments.of("16/17 normale Klammerebenen", parentheses, "(" + parentheses + ")", 1,
+            "höchstens 16 Klammerebenen"),
+        Arguments.of("16/17 Funktionsklammerebenen", functions, "abs(" + functions + ")", 1,
+            "höchstens 16 Klammerebenen"),
+        Arguments.of("16/17 gemeinsame Klammerebenen", mixedDepth, "(" + mixedDepth + ")", 1,
+            "höchstens 16 Klammerebenen"),
+        Arguments.of("Wissenschaftliche Exponentenvorzeichen zählen nicht", scientific, scientific + "+1", 50.001,
+            "höchstens 50 Operationen"),
+        Arguments.of("Alle Grenzen gleichzeitig", combined, combined + " ", 1, "höchstens 256 Zeichen")
+    );
   }
 
   @Test
-  void keepsSquareRootUnaryAndRejectsNegativeSquareRootInputs() {
-    String output = runCalculator("25\nsqrt\n2\n-16\nsqrt\n3\n");
-
-    assertEquals(List.of("5"), resultsIn(output));
-    assertTrue(output.contains("Fehler: Die Quadratwurzel einer negativen Zahl ist nicht erlaubt."));
-    assertEquals(0, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
-    assertEquals(0, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"", " \n\t "})
-  void exitsAtEndOfInputBeforeTheFirstNumber(String input) {
-    String output = runCalculatorUntilEndOfInput(input);
+  void exitsAtEndOfInputBeforeTheFirstExpression() {
+    String output = runCalculatorUntilEndOfInput("");
 
     assertTrue(resultsIn(output).isEmpty());
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
-    assertFalse(output.contains("Was möchtest du als Nächstes tun?"));
-  }
-
-  @Test
-  void exitsAtEndOfInputWhenANewFirstNumberIsRequested() {
-    String output = runCalculatorUntilEndOfInput("2\n+\n3\n2\n");
-
-    assertEquals(List.of("5"), resultsIn(output));
-    assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertFalse(output.contains("Aktuelles Ergebnis: "));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"+", "-", "*", "/"})
-  void exitsAtEndOfInputAfterSelectingABinaryOperator(String operator) {
-    String output = runCalculatorUntilEndOfInput("5\n" + operator + "\n");
-
-    assertTrue(resultsIn(output).isEmpty());
-    assertEquals(1, occurrencesOf(output, "Gib die zweite Zahl ein: "));
+    assertEquals(1, occurrencesOf(output, EXPRESSION_PROMPT));
+    assertFalse(output.contains("Fehler:"));
     assertFalse(output.contains("Was möchtest du als Nächstes tun?"));
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"5", "5\nmode\n"})
-  void exitsAtEndOfInputDuringOperatorSelection(String input) {
+  @ValueSource(strings = {"\n", " \t\n"})
+  void treatsBlankLinesAsInvalidExpressionsRatherThanEndOfInput(String input) {
     String output = runCalculatorUntilEndOfInput(input);
 
     assertTrue(resultsIn(output).isEmpty());
-    assertTrue(output.contains("Wähle einen Operator aus: "));
-    assertFalse(output.contains("Bitte gib einen der erlaubten Operatoren ein!"));
+    assertTrue(output.contains("Ausdruck darf nicht leer sein"));
+    assertEquals(1, occurrencesOf(output, NO_RESULT_MENU));
   }
 
   @ParameterizedTest
-  @CsvSource({"power, Gib den Exponent ein:", "root, Gib den Wurzelexponenten ein:"})
-  void exitsAtEndOfInputWhenAnExponentIsRequested(String operator, String prompt) {
-    String output = runCalculatorUntilEndOfInput("27\n" + operator + "\n");
-
-    assertTrue(resultsIn(output).isEmpty());
-    assertTrue(output.contains(prompt));
-    assertFalse(output.contains("Gib die zweite Zahl ein: "));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"2\n+\n3", "2\n+\n3\n", "25\nsqrt"})
+  @ValueSource(strings = {"2+3", "2+3\n", "sqrt(25)"})
   void exitsAtEndOfInputAfterASuccessfulCalculation(String input) {
     String output = runCalculatorUntilEndOfInput(input);
 
     assertEquals(List.of("5"), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Deine Auswahl: "));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"abc\n", "5\n+\nabc\n", "5\npower\nabc\n", "5\nroot\nabc\n"})
-  void exitsAtEndOfInputAfterAnInvalidNumber(String input) {
-    String output = runCalculatorUntilEndOfInput(input);
-
-    assertTrue(resultsIn(output).isEmpty());
-    assertEquals(1, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
+    assertEquals(1, occurrencesOf(output, FULL_MENU));
   }
 
   @Test
-  void exitsAtEndOfInputAfterAnInvalidOperator() {
-    String output = runCalculatorUntilEndOfInput("5\n?\n");
-
-    assertTrue(resultsIn(output).isEmpty());
-    assertEquals(1, occurrencesOf(output, "Bitte gib einen der erlaubten Operatoren ein!"));
-    assertEquals(2, occurrencesOf(output, "Wähle einen Operator aus: "));
-  }
-
-  @Test
-  void exitsAtEndOfInputAfterAnInvalidMenuChoice() {
-    String output = runCalculatorUntilEndOfInput("2\n+\n3\nabc\n");
+  void exitsAtEndOfInputWhenANewExpressionIsRequestedAfterRestart() {
+    String output = runCalculatorUntilEndOfInput("2+3\n2");
 
     assertEquals(List.of("5"), resultsIn(output));
-    assertEquals(1, occurrencesOf(output, "Bitte wähle 1, 2, 3 oder 4."));
-    assertEquals(2, occurrencesOf(output, "Deine Auswahl: "));
-  }
-
-  @Test
-  void exitsAtEndOfInputAfterAMathematicalError() {
-    String output = runCalculatorUntilEndOfInput("5\n/\n0\n");
-
-    assertTrue(resultsIn(output).isEmpty());
-    assertTrue(output.contains("Fehler: Division durch null ist nicht erlaubt."));
-    assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
+    assertEquals(2, occurrencesOf(output, EXPRESSION_PROMPT));
+    assertFalse(output.contains("Aktuelles Ergebnis: "));
   }
 
   @Test
   void exitsAtEndOfInputWhenContinuingWithThePreviousResult() {
-    String output = runCalculatorUntilEndOfInput("2\n+\n3\n1\n");
+    String output = runCalculatorUntilEndOfInput("2+3\n1");
 
     assertEquals(List.of("5"), resultsIn(output));
     assertTrue(output.contains("Aktuelles Ergebnis: 5"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
+    assertTrue(output.contains("Verwende ans im nächsten Ausdruck"));
+    assertEquals(2, occurrencesOf(output, EXPRESSION_PROMPT));
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"2\n+\n3\n4", "-1\nsqrt\n4"})
+  @ValueSource(strings = {"abc", "2+", "power(2,", "root(27,", "ans", "3,14", "sqrt(-1)"})
+  void exitsAtEndOfInputAfterSyntaxOrMathErrors(String input) {
+    String output = runCalculatorUntilEndOfInput(input);
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertEquals(1, occurrencesOf(output, "Fehler:"));
+    assertEquals(1, occurrencesOf(output, NO_RESULT_MENU));
+  }
+
+  @Test
+  void exitsAtEndOfInputAfterAnInvalidMenuLine() {
+    String output = runCalculatorUntilEndOfInput("2+3\n1 2");
+
+    assertEquals(List.of("5"), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Bitte wähle 1, 2, 3 oder 4."));
+    assertEquals(2, occurrencesOf(output, FULL_MENU));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"2+3\n4", "sqrt(-1)\n4"})
   void exitsAtEndOfInputImmediatelyAfterShowingHistory(String input) {
     String output = runCalculatorUntilEndOfInput(input);
 
     assertEquals(1, occurrencesOf(output, "Rechenverlauf:"));
     assertEquals(2, occurrencesOf(output, "Was möchtest du als Nächstes tun?"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
     if (resultsIn(output).isEmpty()) {
       assertTrue(historyEntriesIn(output).isEmpty());
       assertTrue(output.contains("Noch keine erfolgreichen Berechnungen."));
-      assertFalse(output.contains("1. Mit dem Ergebnis weiterrechnen"));
     } else {
-      assertEquals(List.of("1. 2 + 3 = 5"), historyEntriesIn(output));
+      assertEquals(List.of("1. 2+3 [DEG] = 5"), historyEntriesIn(output));
     }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"mode", "mode\nmode"})
+  void exitsAtEndOfInputAfterSwitchingMode(String input) {
+    String output = runCalculatorUntilEndOfInput(input);
+
+    assertTrue(resultsIn(output).isEmpty());
+    assertTrue(output.contains("Aktueller Winkelmodus: RAD"));
+    assertFalse(output.contains("Was möchtest du als Nächstes tun?"));
+    assertFalse(output.contains("Fehler:"));
   }
 
   @Test
@@ -1137,120 +875,6 @@ class CalculatorTest {
     scanner.close();
     try (PrintStream output = new PrintStream(new ByteArrayOutputStream())) {
       assertThrows(IllegalStateException.class, () -> Calculator.run(scanner, output));
-    }
-  }
-
-  private static String runCalculatorUntilEndOfInput(String input) {
-    String output = assertDoesNotThrow(() -> runCalculator(input));
-
-    assertEquals(1, occurrencesOf(output, EOF_MESSAGE));
-    assertTrue(output.endsWith(EOF_MESSAGE + System.lineSeparator()));
-    assertFalse(output.contains("Exception"));
-    return output;
-  }
-
-  @ParameterizedTest
-  @CsvSource({
-      "3.14, 3.14", "0.5, 0.5", "-2.75, -2.75", "42, 42", "42.0, 42",
-      "+3.5, 3.5", ".5, 0.5", "3., 3", "1.25e-7, 1.25E-7",
-      "-2.75E-4, -2.75E-4", "1e20, 100000000000000000000",
-      "0x1.6p1, 2.75", "٣.٥, 3.5"
-  })
-  void acceptsPointNumbersAndPreservesFormattingRegardlessOfScannerLocale(String input, String expectedOutput) {
-    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
-      String output = runCalculator(input + "\n*\n1\n4\n3\n", locale);
-
-      assertEquals(List.of(expectedOutput), resultsIn(output), locale.toLanguageTag());
-      assertEquals(List.of("1. " + expectedOutput + " * 1 = " + expectedOutput),
-          historyEntriesIn(output), locale.toLanguageTag());
-      assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
-      assertFalse(output.contains(EOF_MESSAGE));
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"3,14", "0,5", "-2,75", "1,234", "-1,234", "+1,234",
-      "1,234.56", "1,234e2", "1,234,567", "1.234,56", "abc"})
-  void rejectsCommasAndInvalidNumbersAndAcceptsAPointNumberOnRetry(String input) {
-    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
-      String output = runCalculator(input + "\n3.14\n+\n0\n3\n", locale);
-
-      assertEquals(List.of("3.14"), resultsIn(output), locale.toLanguageTag());
-      assertEquals(1, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
-      assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
-      assertFalse(output.contains(EOF_MESSAGE));
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"de-DE", "en-US"})
-  void usesPointNumbersForAdditionalOperandsAndContinuation(String localeTag) {
-    String output = runCalculator("""
-        2
-        +
-        3,14
-        0.5
-        1
-        power
-        2,0
-        2
-        1
-        root
-        2,0
-        2
-        3
-        """, Locale.forLanguageTag(localeTag));
-
-    assertEquals(List.of("2.5", "6.25", "2.5"), resultsIn(output));
-    assertEquals(3, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
-    assertEquals(1, occurrencesOf(output, "Gib die erste Zahl ein: "));
-    assertEquals(2, occurrencesOf(output, "Gib die zweite Zahl ein: "));
-    assertEquals(2, occurrencesOf(output, "Gib den Exponent ein: "));
-    assertEquals(2, occurrencesOf(output, "Gib den Wurzelexponenten ein: "));
-    assertTrue(output.contains("Aktuelles Ergebnis: 2.5"));
-    assertFalse(output.contains(EOF_MESSAGE));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"pi", "PI", "e", "E"})
-  void acceptsConstantsRegardlessOfScannerLocale(String constant) {
-    double expected = constant.equalsIgnoreCase("pi") ? Math.PI : Math.E;
-    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
-      String output = runCalculator(constant + "\n*\n1\n3\n", locale);
-
-      assertEquals(List.of(Double.toString(expected)), resultsIn(output), locale.toLanguageTag());
-      assertFalse(output.contains("Bitte gebe eine Zahl ein!"));
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(doubles = {Double.MIN_VALUE, Double.MAX_VALUE, -0.0, Math.PI, Math.E})
-  void reentersDisplayedNumbersWithExactlyTheSameDoubleValue(double number) {
-    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
-      String output = runCalculator(Double.toString(number) + "\n*\n1\n3\n", locale);
-      assertEquals(1, resultsIn(output).size());
-      String displayedNumber = resultsIn(output).getFirst();
-
-      String repeatedOutput = runCalculator(displayedNumber + "\n*\n1\n3\n", locale);
-      assertEquals(1, resultsIn(repeatedOutput).size());
-      double repeatedNumber = Double.parseDouble(resultsIn(repeatedOutput).getFirst());
-
-      assertEquals(Double.doubleToLongBits(number), Double.doubleToLongBits(repeatedNumber), locale.toLanguageTag());
-      assertFalse(repeatedOutput.contains("Bitte gebe eine Zahl ein!"));
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"1,234", "3,14"})
-  void handlesEndOfInputAfterRejectedCommaNumbersRegardlessOfScannerLocale(String input) {
-    for (Locale locale : List.of(Locale.GERMANY, Locale.US)) {
-      String output = assertDoesNotThrow(() -> runCalculator(input, locale));
-
-      assertTrue(resultsIn(output).isEmpty());
-      assertEquals(1, occurrencesOf(output, "Bitte gebe eine Zahl ein!"));
-      assertEquals(2, occurrencesOf(output, "Gib die erste Zahl ein: "));
-      assertEquals(1, occurrencesOf(output, EOF_MESSAGE));
-      assertTrue(output.endsWith(EOF_MESSAGE + System.lineSeparator()));
     }
   }
 
@@ -1265,6 +889,15 @@ class CalculatorTest {
       Calculator.run(scanner, output);
     }
     return buffer.toString(StandardCharsets.UTF_8);
+  }
+
+  private static String runCalculatorUntilEndOfInput(String input) {
+    String output = assertDoesNotThrow(() -> runCalculator(input));
+
+    assertEquals(1, occurrencesOf(output, EOF_MESSAGE));
+    assertTrue(output.endsWith(EOF_MESSAGE + System.lineSeparator()));
+    assertFalse(output.contains("Exception"));
+    return output;
   }
 
   private static List<String> resultsIn(String output) {
