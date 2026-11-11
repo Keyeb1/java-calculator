@@ -101,6 +101,7 @@ public class Calculator {
     output.println("Konstanten: pi (auch PI/Pi) und e/E.");
     output.println("Funktionen: sqrt(x), abs(x), sin(x), cos(x), tan(x), log(x), ln(x), factorial(x).");
     output.println("Kommas trennen Argumente: power(2,3) und root(27,3).");
+    output.println("Prozentwert: percent(prozentsatz,grundwert), z. B. percent(10,500) = 50.");
     output.println("ans verwendet das letzte Ergebnis; nach einer neuen Berechnung ist ans nicht verfügbar.");
     output.println("ans und Funktionsnamen werden kleingeschrieben.");
     output.println("mode wechselt an der Ausdrucksabfrage zwischen DEG und RAD; Standard ist DEG.");

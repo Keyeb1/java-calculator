@@ -46,6 +46,7 @@ class CalculatorTest {
 
     for (String hint : List.of("vollständige Ausdrücke", "Punkt vor Strich", "Klammern",
         "Dezimalpunkt", "1.25e-7", "sqrt(x)", "power(2,3)", "root(27,3)",
+        "percent(prozentsatz,grundwert)", "percent(10,500) = 50",
         "Kommas trennen Argumente", "ans", "mode", "256 Zeichen", "50 Operationen", "16 gleichzeitig")) {
       assertTrue(output.contains(hint), hint);
     }
@@ -226,7 +227,7 @@ class CalculatorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"ans+1", "sqrt(-1)", "2+"})
+  @ValueSource(strings = {"ans+1", "sqrt(-1)", "2+", "percent(10,ans)"})
   void showsPreviousHistoryButRejectsAnsAndContinuationAfterANewCalculationFails(String expression) {
     String output = runCalculator("2+3\n2\n" + expression + "\n4\n1\n2\n6+2\n4\n3\n");
 
@@ -256,6 +257,34 @@ class CalculatorTest {
     assertEquals(Double.doubleToLongBits(Double.parseDouble(expected)),
         Double.doubleToLongBits(Double.parseDouble(resultsIn(output).getLast())));
     assertFalse(output.contains("Fehler:"));
+  }
+
+  @ParameterizedTest
+  @CsvSource(value = {"0.0 | 0", "-0.0 | -0"}, delimiter = '|')
+  void continuesWithZeroAnsInPercentAndRecordsItsSign(String expression, String expected) {
+    String output = runCalculator(expression + "\n1\npercent(10,ans)\n4\n3\n");
+
+    assertEquals(List.of(expected, expected), resultsIn(output));
+    assertEquals(List.of("1. " + expression + " [DEG] = " + expected,
+        "2. percent(10,ans) [DEG, ans=" + expected + "] = " + expected), historyEntriesIn(output));
+    assertEquals(Double.doubleToLongBits(Double.parseDouble(expression)),
+        Double.doubleToLongBits(Double.parseDouble(resultsIn(output).getLast())));
+    assertFalse(output.contains("Fehler:"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"percent(1e308,ans)", "percent(10)", "percent(10,ans,1)"})
+  void preservesAnsAndHistoryAfterPercentErrorsAndCanRetry(String failedExpression) {
+    String output = runCalculator("500\n1\n" + failedExpression
+        + "\n4\n1\npercent(10,ans)\n4\n4\n3\n");
+
+    assertEquals(List.of("500", "50"), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Fehler:"));
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: 500"));
+    assertEquals(List.of("1. 500 [DEG] = 500",
+        "1. 500 [DEG] = 500", "2. percent(10,ans) [DEG, ans=500] = 50",
+        "1. 500 [DEG] = 500", "2. percent(10,ans) [DEG, ans=500] = 50"), historyEntriesIn(output));
+    assertFalse(output.contains(EOF_MESSAGE));
   }
 
   @Test
@@ -400,7 +429,9 @@ class CalculatorTest {
       "ln(e) | 1", "ln(0.5) | -0.6931471805599453",
       "factorial(0) | 1", "factorial(5) | 120", "factorial(20) | 2432902008176640000",
       "power(2,3) | 8", "root(27,3) | 3", "root(25,2) | 5",
-      "root(-27,3) | -3", "root(-32,5) | -2", "root(0,3) | 0"
+      "root(-27,3) | -3", "root(-32,5) | -2", "root(0,3) | 0",
+      "percent(10,500) | 50", "percent(2.5,800) | 20", "percent(5+5,500+100) | 60",
+      "500+percent(10,500) | 550", "1000-percent(5,1000) | 950"
   }, delimiter = '|')
   void evaluatesExistingNonAngularOperationsInBothModes(String expression, double expected) {
     for (String prefix : List.of("", "mode\n")) {
@@ -426,7 +457,8 @@ class CalculatorTest {
       "root(-16,4) | gerade Wurzel aus einer negativen Zahl", "root(27,0) | positive ganze Zahl",
       "root(27,-3) | positive ganze Zahl", "root(27,2.5) | positive ganze Zahl",
       "power(-2,0.5) | kein endliches Ergebnis", "power(1e308,2) | kein endliches Ergebnis",
-      "1e308+1e308 | kein endliches Ergebnis", "1e309 | Zahl muss endlich sein"
+      "1e308+1e308 | kein endliches Ergebnis", "1e309 | Zahl muss endlich sein",
+      "percent(200,1e308) | kein endliches Ergebnis"
   }, delimiter = '|')
   void reportsMathErrorsWithoutHistoryAndAllowsANewCalculation(String expression, String message) {
     String output = runCalculator(expression + "\n4\n2\nsqrt(25)\n3\n");
@@ -461,7 +493,8 @@ class CalculatorTest {
 
   @ParameterizedTest
   @ValueSource(strings = {"NaN", "Infinity", "-Infinity", "cos(NaN)", "tan(Infinity)",
-      "root(27,NaN)", "root(Infinity,3)", "root(27,-Infinity)", "sin(1e309)"})
+      "root(27,NaN)", "root(Infinity,3)", "root(27,-Infinity)", "sin(1e309)",
+      "percent(NaN,500)", "percent(10,Infinity)", "percent(-Infinity,500)", "percent(10,1e309)"})
   void rejectsNonFiniteInputTokensAndFunctionOperands(String expression) {
     String output = runCalculator(expression + "\n4\n3\n");
 
@@ -664,7 +697,8 @@ class CalculatorTest {
 
   @ParameterizedTest
   @ValueSource(strings = {"abc", "2+", "()", "(1+2", "1+2)", "1 2", "sqrt()",
-      "sqrt(1,2)", "power(2)", "power(2,,3)", "Sin(90)", "2pi", "2^3"})
+      "sqrt(1,2)", "power(2)", "power(2,,3)", "Sin(90)", "2pi", "2^3",
+      "percent()", "percent(10,)", "percent(10,500", "10 Prozent von 500", "5% von 1000", "10%"})
   void reportsSyntaxErrorsAndAllowsANewExpression(String expression) {
     String output = runCalculator(expression + "\n2\n2+2\n3\n");
 
@@ -758,6 +792,10 @@ class CalculatorTest {
     String scientific = "1e-3" + "+1".repeat(50);
     String combined = "(".repeat(15) + "+".repeat(49) + "abs(1)" + ")".repeat(15);
     combined += " ".repeat(256 - combined.length());
+    String percentLength = "percent(10,500)";
+    percentLength += " ".repeat(256 - percentLength.length());
+    String percentOperations = "+".repeat(47) + "percent(5+5,500+100)";
+    String percentDepth = "percent(100,".repeat(16) + "1" + ")".repeat(16);
     return Stream.of(
         Arguments.of("256/257 Zeichen einschließlich Leerzeichen", length, length + " ", 1, "höchstens 256 Zeichen"),
         Arguments.of("50/51 binäre Operationen", binary, binary + "+1", 51, "höchstens 50 Operationen"),
@@ -772,7 +810,13 @@ class CalculatorTest {
             "höchstens 16 Klammerebenen"),
         Arguments.of("Wissenschaftliche Exponentenvorzeichen zählen nicht", scientific, scientific + "+1", 50.001,
             "höchstens 50 Operationen"),
-        Arguments.of("Alle Grenzen gleichzeitig", combined, combined + " ", 1, "höchstens 256 Zeichen")
+        Arguments.of("Alle Grenzen gleichzeitig", combined, combined + " ", 1, "höchstens 256 Zeichen"),
+        Arguments.of("256/257 Zeichen mit percent", percentLength, percentLength + " ", 50,
+            "höchstens 256 Zeichen"),
+        Arguments.of("50/51 Operationen mit percent und Argumentausdrücken", percentOperations,
+            percentOperations + "+1", 60, "höchstens 50 Operationen"),
+        Arguments.of("16/17 Klammerebenen mit percent", percentDepth, "(" + percentDepth + ")", 1,
+            "höchstens 16 Klammerebenen")
     );
   }
 

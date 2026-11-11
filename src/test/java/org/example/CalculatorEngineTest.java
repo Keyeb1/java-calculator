@@ -213,6 +213,91 @@ class CalculatorEngineTest {
   }
 
   @ParameterizedTest
+  @CsvSource({
+      "10, 500, 50", "2.5, 800, 20", "-10, 500, -50", "10, -500, -50",
+      "-10, -500, 50", "150, 200, 300", "100, 2.75, 2.75", "12.5, 80, 10"
+  })
+  void calculatesPercentages(double percentage, double base, double expected) {
+    assertEquals(expected, engine.percent(percentage, base));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0.1, 0.3, 0.00030000000000000003", "0.7, 0.7, 0.004899999999999999"})
+  void calculatesPercentagesFromExactBinaryOperands(double percentage, double base, double expected) {
+    // Die kürzesten Dezimaldarstellungen der Eingaben würden andere Ergebnisse liefern.
+    assertEquals(expected, engine.percent(percentage, base));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {1, -1})
+  void avoidsIntermediateOverflowWhenThePercentageResultIsFinite(double sign) {
+    double expected = sign * Double.MAX_VALUE;
+
+    assertEquals(expected, engine.percent(100, expected));
+    assertEquals(expected, engine.percent(expected, 100));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {Double.MIN_VALUE, -Double.MIN_VALUE})
+  void avoidsUnderflowFromDividingAnOperandBeforeMultiplication(double small) {
+    assertEquals(small, engine.percent(small, 100));
+    assertEquals(small, engine.percent(100, small));
+    // small / 100 wäre bereits null, obwohl das Endergebnis gut darstellbar ist.
+    double expected = Math.copySign(8.881784197001251e-18, small);
+    assertEquals(expected, engine.percent(small, Double.MAX_VALUE));
+    assertEquals(expected, engine.percent(Double.MAX_VALUE, small));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {Double.MIN_VALUE, -Double.MIN_VALUE})
+  void avoidsPrematureSubnormalRoundingInThePercentageProduct(double small) {
+    // Die direkte double-Rechnung small * 149.9 / 100 würde auf 2 * small runden.
+    assertEquals(small, engine.percent(small, 149.9));
+    assertEquals(small, engine.percent(149.9, small));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "0.0, 500, 0.0", "-0.0, 500, -0.0", "0.0, -500, -0.0", "-0.0, -500, 0.0",
+      "10, 0.0, 0.0", "-10, 0.0, -0.0", "10, -0.0, -0.0", "-10, -0.0, 0.0",
+      "0.0, 0.0, 0.0", "-0.0, 0.0, -0.0", "0.0, -0.0, -0.0", "-0.0, -0.0, 0.0"
+  })
+  void preservesThePercentageZeroSignFromBothOperands(double percentage, double base, double expected) {
+    assertEquals(Double.doubleToLongBits(expected),
+        Double.doubleToLongBits(engine.percent(percentage, base)));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {Double.MIN_VALUE, -Double.MIN_VALUE})
+  void preservesThePercentageSignWhenTheFinalResultUnderflowsToZero(double small) {
+    long sameSign = Double.doubleToLongBits(Math.copySign(0.0, small));
+    long oppositeSign = Double.doubleToLongBits(Math.copySign(0.0, -small));
+
+    assertEquals(sameSign, Double.doubleToLongBits(engine.percent(small, 1)));
+    assertEquals(sameSign, Double.doubleToLongBits(engine.percent(1, small)));
+    assertEquals(oppositeSign, Double.doubleToLongBits(engine.percent(small, -1)));
+    assertEquals(oppositeSign, Double.doubleToLongBits(engine.percent(-1, small)));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"50, 0.0", "-50, -0.0", "150, 1e-323", "-150, -1e-323"})
+  void roundsPercentageSubnormalTiesOnlyAtTheFinalConversion(double percentage, double expected) {
+    assertEquals(Double.doubleToLongBits(expected),
+        Double.doubleToLongBits(engine.percent(percentage, Double.MIN_VALUE)));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {Double.MAX_VALUE, -Double.MAX_VALUE})
+  void rejectsPercentagesWhoseFinalResultOverflows(double large) {
+    for (double[] operands : new double[][] {{200, large}, {large, 200}, {large, Double.MAX_VALUE}}) {
+      ArithmeticException exception = assertThrows(ArithmeticException.class,
+          () -> engine.percent(operands[0], operands[1]));
+
+      assertEquals("Die Berechnung liefert kein endliches Ergebnis (NaN oder Infinity).", exception.getMessage());
+    }
+  }
+
+  @ParameterizedTest
   @ValueSource(doubles = {0.0, -0.0})
   void rejectsDivisionByZero(double divisor) {
     assertThrows(ArithmeticException.class, () -> engine.divide(5, divisor));
@@ -262,5 +347,9 @@ class CalculatorEngineTest {
     assertThrows(IllegalArgumentException.class, () -> engine.factorial(operand));
     assertThrows(IllegalArgumentException.class, () -> engine.power(operand, 1));
     assertThrows(IllegalArgumentException.class, () -> engine.power(1, operand));
+    assertThrows(IllegalArgumentException.class, () -> engine.percent(operand, 1));
+    assertThrows(IllegalArgumentException.class, () -> engine.percent(1, operand));
+    assertThrows(IllegalArgumentException.class, () -> engine.percent(operand, 0));
+    assertThrows(IllegalArgumentException.class, () -> engine.percent(0, operand));
   }
 }

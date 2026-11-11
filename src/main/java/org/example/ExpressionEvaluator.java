@@ -160,7 +160,7 @@ public class ExpressionEvaluator {
 
       int argumentCount = switch (name) {
         case "sqrt", "abs", "sin", "cos", "tan", "log", "ln", "factorial" -> 1;
-        case "power", "root" -> 2;
+        case "power", "root", "percent" -> 2;
         default -> throw errorAt("Unbekannter Name '" + name + "'", start);
       };
       skipWhitespace();
@@ -195,6 +195,7 @@ public class ExpressionEvaluator {
         case "factorial" -> engine.factorial(first);
         case "power" -> engine.power(first, second);
         case "root" -> engine.nthRoot(first, second);
+        case "percent" -> engine.percent(first, second);
         default -> throw errorAt("Unbekannte Funktion '" + name + "'", start);
       };
     }

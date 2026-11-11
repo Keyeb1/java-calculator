@@ -1,5 +1,7 @@
 package org.example;
 
+import java.math.BigDecimal;
+
 /**
  * Berechnet mit endlichen reellen Zahlen, unabhängig von einer Benutzeroberfläche.
  * Nicht endliche Operanden führen zu einer IllegalArgumentException;
@@ -130,6 +132,25 @@ public class CalculatorEngine {
   public double power(double base, double exponent) {
     validateOperands(base, exponent);
     return checkedResult(Math.pow(base, exponent));
+  }
+
+  /**
+   * Berechnet den Prozentwert aus den exakten Werten der übergebenen doubles.
+   * Multiplikation und Division durch 100 bleiben exakt; erst das Endergebnis
+   * wird zu double gerundet. Auch bei Unterlauf bleibt das Vorzeichen erhalten.
+   */
+  public double percent(double percentage, double base) {
+    validateOperands(percentage, base);
+    double result = new BigDecimal(percentage)
+        .multiply(new BigDecimal(base))
+        .movePointLeft(2)
+        .doubleValue();
+    if (result == 0.0) {
+      // BigDecimal erhält keine negative Null; daher beide Eingabevorzeichen prüfen.
+      boolean negative = Math.copySign(1.0, percentage) != Math.copySign(1.0, base);
+      result = negative ? -0.0 : 0.0;
+    }
+    return checkedResult(result);
   }
 
   private static void validateOperands(double... operands) {
