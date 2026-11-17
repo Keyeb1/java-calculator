@@ -97,7 +97,8 @@ class ExpressionEvaluatorTest {
       "1e", "1e+", "1e-", "1e--2", "1e+-2", ".", ".e2", "1..2", "1.2.3",
       "()", "( )", "(", ")", "(1+2", "1+2)", "((1)", "1+", "*1", "1/*2", "1+()",
       "2(3)", "(2)3", "(2)(3)", "1,5", "1_000", "0x1.0p0", "1d",
-      "NaN", "Infinity", "-Infinity", "tau", "answer", "ans", "square(4)", "1;2", "1**2", "2^3", "1=1"
+      "NaN", "Infinity", "-Infinity", "tau", "answer", "ans", "square(4)", "1;2", "1**2", "2^3", "1=1",
+      "17%5", "17 mod 5"
   })
   void rejectsMalformedOrUnsupportedExpressionsWithoutIgnoringRemainingInput(String expression) {
     IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
@@ -119,7 +120,7 @@ class ExpressionEvaluatorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"1e309", "-1e309", "0*1e309", "1e309-1e309"})
+  @ValueSource(strings = {"1e309", "-1e309", "0*1e309", "1e309-1e309", "mod(1e309,5)", "mod(17,1e309)"})
   void rejectsNonFiniteNumericLiterals(String expression) {
     IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
         () -> evaluator.evaluate(expression));
@@ -176,7 +177,8 @@ class ExpressionEvaluatorTest {
       "tan(45) | 1", "log(100) | 2", "ln(e) | 1", "factorial(5) | 120",
       "factorial(0) | 1", "power(2, 3) | 8", "root(27, 3) | 3", "root(-27, 3) | -3",
       "percent(10,500) | 50", "percent(2.5,800) | 20", "percent(-10,500) | -50",
-      "percent(150,-200) | -300"
+      "percent(150,-200) | -300", "mod(17,5) | 2", "mod(-17,5) | 3",
+      "mod(5.5,2) | 1.5", "mod(-5.5,2) | 0.5"
   }, delimiter = '|')
   void evaluatesEveryScientificFunction(String expression, double expected) {
     assertEquals(expected, evaluator.evaluate(expression), TOLERANCE);
@@ -192,7 +194,9 @@ class ExpressionEvaluatorTest {
       "sqrt ( abs ( -9 ) ) | 3", "percent(5+5,500+100) | 60",
       "500+percent(10,500) | 550", "1000-percent(5,1000) | 950",
       "sqrt(percent(10,810)) | 9", "percent(10,percent(50,1000)) | 50",
-      "percent ( 1e-3, 1e+2 ) | 0.001"
+      "percent ( 1e-3, 1e+2 ) | 0.001", "mod(10+7,5) | 2", "mod(17,2+3) | 2",
+      "mod(power(2,5)+3,sqrt(25)) | 0", "mod(17,mod(14,9)) | 2",
+      "2+mod(17,5)*3 | 8", "-mod(-17,5) | -3", "mod ( 5.5 , 2 ) | 1.5"
   }, delimiter = '|')
   void acceptsCompleteAndNestedExpressionsAsArguments(String expression, double expected) {
     assertEquals(expected, evaluator.evaluate(expression), TOLERANCE);
@@ -211,7 +215,7 @@ class ExpressionEvaluatorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"power", "root", "percent"})
+  @ValueSource(strings = {"power", "root", "percent", "mod"})
   void requiresExactlyTwoNonEmptyArguments(String function) {
     for (String arguments : new String[] {"()", "(1)", "(1,)", "(,2)", "(1,,2)", "(1,2,3)", "(1,2,)"}) {
       IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
@@ -223,7 +227,7 @@ class ExpressionEvaluatorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"sqrt(1,1/0)", "power(1,2,1/0)", "percent(1,2,1/0)"})
+  @ValueSource(strings = {"sqrt(1,1/0)", "power(1,2,1/0)", "percent(1,2,1/0)", "mod(17,5,1/0)"})
   void rejectsExtraArgumentsBeforeEvaluatingThem(String expression) {
     IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
         () -> evaluator.evaluate(expression));
@@ -234,7 +238,8 @@ class ExpressionEvaluatorTest {
   @ParameterizedTest
   @ValueSource(strings = {"sqrt 9", "sqrt(9", "sqrt((9)", "power(2 3)", "power(2,3",
       "sqrt(abs(-9)", "sin(90))", "power(2,3)foo", "power((2,3),4)", "sqrt(1 2)",
-      "percent 10,500", "percent(10,500", "percent(10,500))", "percent(10,500)foo"})
+      "percent 10,500", "percent(10,500", "percent(10,500))", "percent(10,500)foo",
+      "mod 17,5", "mod(17,5", "mod(17,5)foo"})
   void rejectsMalformedFunctionCallsAndRemainingInput(String expression) {
     IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
         () -> evaluator.evaluate(expression));
@@ -245,7 +250,7 @@ class ExpressionEvaluatorTest {
   @ParameterizedTest
   @ValueSource(strings = {"tau", "answer", "square(4)", "PIE", "Sin(90)", "SIN(90)",
       "Sqrt(4)", "POWER(2,3)", "Percent(10,500)", "PERCENT(10,500)",
-      "Ans", "ANS", "sin90", "mode", "pi_2"})
+      "Mod(17,5)", "MOD(17,5)", "modulo(17,5)", "Ans", "ANS", "sin90", "mode", "pi_2"})
   void rejectsUnknownNamesAndUppercaseFunctionOrAnsNames(String expression) {
     IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
         () -> evaluator.evaluate(expression, AngleMode.DEG, 5.0));
@@ -281,7 +286,10 @@ class ExpressionEvaluatorTest {
       "power(-2,0.5) | Die Berechnung liefert kein endliches Ergebnis (NaN oder Infinity).",
       "power(1e308,2) | Die Berechnung liefert kein endliches Ergebnis (NaN oder Infinity).",
       "percent(200,1e308) | Die Berechnung liefert kein endliches Ergebnis (NaN oder Infinity).",
-      "percent(10,1e308*2) | Die Berechnung liefert kein endliches Ergebnis (NaN oder Infinity)."
+      "percent(10,1e308*2) | Die Berechnung liefert kein endliches Ergebnis (NaN oder Infinity).",
+      "mod(17,0) | Der Divisor für Modulo muss größer als null sein.",
+      "mod(17,-0.0) | Der Divisor für Modulo muss größer als null sein.",
+      "mod(17,-5) | Der Divisor für Modulo muss größer als null sein."
   }, delimiter = '|')
   void preservesEngineDomainAndOverflowErrorsForFunctions(String expression, String expectedMessage) {
     ArithmeticException exception = assertThrows(ArithmeticException.class, () -> evaluator.evaluate(expression));
@@ -359,10 +367,47 @@ class ExpressionEvaluatorTest {
     assertEquals(Double.doubleToLongBits(expected), Double.doubleToLongBits(evaluator.evaluate(expression)));
   }
 
+  @Test
+  void evaluatesModWithOnlyTheAnsProvidedForThisCall() {
+    assertEquals(2, evaluator.evaluate("mod(ans,5)", AngleMode.DEG, 17.0));
+    assertEquals(3, evaluator.evaluate("mod(ans,5)", AngleMode.RAD, -17.0));
+    assertEquals(2, evaluator.evaluate("mod(17,ans)", AngleMode.DEG, 5.0));
+    assertThrows(ArithmeticException.class,
+        () -> evaluator.evaluate("mod(ans,0)", AngleMode.DEG, 17.0));
+    assertEquals(1, evaluator.evaluate("mod(ans,5)", AngleMode.RAD, 6.0));
+
+    IllegalArgumentException defaultError = assertThrows(IllegalArgumentException.class,
+        () -> evaluator.evaluate("mod(ans,5)"));
+    IllegalArgumentException nullError = assertThrows(IllegalArgumentException.class,
+        () -> evaluator.evaluate("mod(ans,5)", AngleMode.DEG, null));
+    assertTrue(defaultError.getMessage().contains("kein letztes Ergebnis"));
+    assertEquals(defaultError.getMessage(), nullError.getMessage());
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {0.0, -0.0})
+  void acceptsEitherZeroSignAsModuloDividendButNotAsDivisor(double lastResult) {
+    assertEquals(Double.doubleToLongBits(0.0),
+        Double.doubleToLongBits(evaluator.evaluate("mod(ans,5)", AngleMode.DEG, lastResult)));
+    ArithmeticException exception = assertThrows(ArithmeticException.class,
+        () -> evaluator.evaluate("mod(17,ans)", AngleMode.DEG, lastResult));
+    assertEquals("Der Divisor für Modulo muss größer als null sein.", exception.getMessage());
+  }
+
+  @ParameterizedTest
+  @CsvSource(value = {
+      "mod(0.3,0.1) | 0.09999999999999998", "mod(-4.9e-324,1) | 1",
+      "mod(1.7976931348623157e308,1.5e-323) | 1e-323",
+      "mod(-1.7976931348623157e308,3) | 1", "mod(-0.0,5) | 0.0"
+  }, delimiter = '|')
+  void preservesTheEngineModuloRoundingAndExtremeRemainders(String expression, double expected) {
+    assertEquals(Double.doubleToLongBits(expected), Double.doubleToLongBits(evaluator.evaluate(expression)));
+  }
+
   @ParameterizedTest
   @ValueSource(doubles = {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY})
   void rejectsNonFiniteLastResultsEvenWhenAnsIsUnused(double lastResult) {
-    for (String expression : new String[] {"ans", "1", "percent(10,ans)"}) {
+    for (String expression : new String[] {"ans", "1", "percent(10,ans)", "mod(ans,5)"}) {
       IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
           () -> evaluator.evaluate(expression, AngleMode.DEG, lastResult));
 
@@ -381,7 +426,8 @@ class ExpressionEvaluatorTest {
   @ParameterizedTest
   @CsvSource(value = {"sin(90) | DEG | 1", "sin(pi/2) | RAD | 1", "cos(60) | DEG | 0.5",
       "cos(pi) | RAD | -1", "tan(45) | DEG | 1", "tan(pi/4) | RAD | 1",
-      "percent(10,500) | DEG | 50", "percent(10,500) | RAD | 50"}, delimiter = '|')
+      "percent(10,500) | DEG | 50", "percent(10,500) | RAD | 50",
+      "mod(-17,5) | DEG | 3", "mod(-17,5) | RAD | 3"}, delimiter = '|')
   void appliesTheSelectedAngleMode(String expression, AngleMode mode, double expected) {
     assertEquals(expected, evaluator.evaluate(expression, mode, null), TOLERANCE);
   }
@@ -542,11 +588,12 @@ class ExpressionEvaluatorTest {
     assertTrue(exception.getMessage().contains("höchstens 50 Operationen"));
   }
 
-  @Test
-  void countsPercentAndItsArgumentOperationsTowardTheSameLimit() {
-    String expression = "+".repeat(47) + "percent(5+5,500+100)";
+  @ParameterizedTest
+  @CsvSource(value = {"percent(5+5,500+100) | 60", "mod(10+7,2+3) | 2"}, delimiter = '|')
+  void countsFunctionCallsAndArgumentOperationsTogetherAtTheLimit(String functionCall, double expected) {
+    String expression = "+".repeat(47) + functionCall;
 
-    assertEquals(60, evaluator.evaluate(expression));
+    assertEquals(expected, evaluator.evaluate(expression));
     IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
         () -> evaluator.evaluate(expression + "+1"));
     assertTrue(exception.getMessage().contains("höchstens 50 Operationen"));
@@ -554,7 +601,7 @@ class ExpressionEvaluatorTest {
 
   @ParameterizedTest
   @ValueSource(strings = {"sqrt(1)", "abs(1)", "sin(1)", "cos(1)", "tan(1)",
-      "log(1)", "ln(1)", "factorial(1)", "power(2,3)", "root(16,2)", "percent(10,500)"})
+      "log(1)", "ln(1)", "factorial(1)", "power(2,3)", "root(16,2)", "percent(10,500)", "mod(17,5)"})
   void countsEachFunctionCallExactlyOnce(String functionCall) {
     assertEquals(evaluator.evaluate(functionCall), evaluator.evaluate("+".repeat(49) + functionCall));
     IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
@@ -563,7 +610,7 @@ class ExpressionEvaluatorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"abs(1e-3)", "percent(1e-3,1e+2)"})
+  @ValueSource(strings = {"abs(1e-3)", "percent(1e-3,1e+2)", "mod(1e-3,1e+2)"})
   void doesNotCountScientificSignsInsideFunctionArgumentsAsOperations(String functionCall) {
     assertEquals(0.001, evaluator.evaluate("+".repeat(49) + functionCall), TOLERANCE);
   }
@@ -624,13 +671,26 @@ class ExpressionEvaluatorTest {
     }
   }
 
-  @Test
-  void includesWhitespaceAroundPercentInTheCharacterLimit() {
-    String expression = "percent(10,500)";
-    expression += " ".repeat(256 - expression.length());
+  @ParameterizedTest
+  @ValueSource(ints = {0, 8})
+  void limitsModNestingTogetherWithNormalParentheses(int normalDepth) {
+    int functionDepth = 16 - normalDepth;
+    String expression = "(".repeat(normalDepth) + "mod(".repeat(functionDepth) + "17"
+        + ",5)".repeat(functionDepth) + ")".repeat(normalDepth);
+
+    assertEquals(2, evaluator.evaluate(expression));
+    IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+        () -> evaluator.evaluate("mod(" + expression + ",5)"));
+    assertTrue(exception.getMessage().contains("höchstens 16 Klammerebenen"));
+  }
+
+  @ParameterizedTest
+  @CsvSource(value = {"percent(10,500) | 50", "mod(17,5) | 2"}, delimiter = '|')
+  void includesWhitespaceAroundFunctionsInTheCharacterLimit(String functionCall, double expected) {
+    String expression = functionCall + " ".repeat(256 - functionCall.length());
     String tooLong = expression + " ";
 
-    assertEquals(50, evaluator.evaluate(expression));
+    assertEquals(expected, evaluator.evaluate(expression));
     IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
         () -> evaluator.evaluate(tooLong));
     assertTrue(exception.getMessage().contains("höchstens 256 Zeichen"));

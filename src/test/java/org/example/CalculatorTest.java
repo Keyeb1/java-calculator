@@ -47,6 +47,7 @@ class CalculatorTest {
     for (String hint : List.of("vollständige Ausdrücke", "Punkt vor Strich", "Klammern",
         "Dezimalpunkt", "1.25e-7", "sqrt(x)", "power(2,3)", "root(27,3)",
         "percent(prozentsatz,grundwert)", "percent(10,500) = 50",
+        "mod(zahl,divisor)", "mod(-17,5) = 3", "positivem Divisor",
         "Kommas trennen Argumente", "ans", "mode", "256 Zeichen", "50 Operationen", "16 gleichzeitig")) {
       assertTrue(output.contains(hint), hint);
     }
@@ -227,7 +228,7 @@ class CalculatorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"ans+1", "sqrt(-1)", "2+", "percent(10,ans)"})
+  @ValueSource(strings = {"ans+1", "sqrt(-1)", "2+", "percent(10,ans)", "mod(ans,5)"})
   void showsPreviousHistoryButRejectsAnsAndContinuationAfterANewCalculationFails(String expression) {
     String output = runCalculator("2+3\n2\n" + expression + "\n4\n1\n2\n6+2\n4\n3\n");
 
@@ -284,6 +285,33 @@ class CalculatorTest {
     assertEquals(List.of("1. 500 [DEG] = 500",
         "1. 500 [DEG] = 500", "2. percent(10,ans) [DEG, ans=500] = 50",
         "1. 500 [DEG] = 500", "2. percent(10,ans) [DEG, ans=500] = 50"), historyEntriesIn(output));
+    assertFalse(output.contains(EOF_MESSAGE));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"0", "-0.0", "-5"})
+  void continuesWithModAndPreservesTheResultAndHistoryAfterAnInvalidDivisor(String divisor) {
+    String output = runCalculator("""
+        17
+        1
+        mode
+        mod(ans,5)
+        1
+        mod(ans,%s)
+        4
+        1
+        mod(ans+1,5)
+        4
+        3
+        """.formatted(divisor));
+
+    assertEquals(List.of("17", "2", "3"), resultsIn(output));
+    assertEquals(1, occurrencesOf(output, "Fehler:"));
+    assertTrue(output.contains("Fehler: Der Divisor für Modulo muss größer als null sein."));
+    assertEquals(2, occurrencesOf(output, "Aktuelles Ergebnis: 2" + System.lineSeparator()));
+    assertEquals(List.of("1. 17 [DEG] = 17", "2. mod(ans,5) [RAD, ans=17] = 2",
+        "1. 17 [DEG] = 17", "2. mod(ans,5) [RAD, ans=17] = 2",
+        "3. mod(ans+1,5) [RAD, ans=2] = 3"), historyEntriesIn(output));
     assertFalse(output.contains(EOF_MESSAGE));
   }
 
@@ -431,7 +459,9 @@ class CalculatorTest {
       "power(2,3) | 8", "root(27,3) | 3", "root(25,2) | 5",
       "root(-27,3) | -3", "root(-32,5) | -2", "root(0,3) | 0",
       "percent(10,500) | 50", "percent(2.5,800) | 20", "percent(5+5,500+100) | 60",
-      "500+percent(10,500) | 550", "1000-percent(5,1000) | 950"
+      "500+percent(10,500) | 550", "1000-percent(5,1000) | 950",
+      "mod(10+7,5) | 2", "mod(-17,5) | 3", "mod(5.5,2) | 1.5", "mod(-5.5,2) | 0.5",
+      "mod(20,5) | 0", "mod(-0.0,5) | 0", "mod(-4.9e-324,1) | 1"
   }, delimiter = '|')
   void evaluatesExistingNonAngularOperationsInBothModes(String expression, double expected) {
     for (String prefix : List.of("", "mode\n")) {
@@ -458,7 +488,10 @@ class CalculatorTest {
       "root(27,-3) | positive ganze Zahl", "root(27,2.5) | positive ganze Zahl",
       "power(-2,0.5) | kein endliches Ergebnis", "power(1e308,2) | kein endliches Ergebnis",
       "1e308+1e308 | kein endliches Ergebnis", "1e309 | Zahl muss endlich sein",
-      "percent(200,1e308) | kein endliches Ergebnis"
+      "percent(200,1e308) | kein endliches Ergebnis",
+      "mod(17,0) | Divisor für Modulo muss größer als null sein",
+      "mod(17,-0.0) | Divisor für Modulo muss größer als null sein",
+      "mod(17,-5) | Divisor für Modulo muss größer als null sein"
   }, delimiter = '|')
   void reportsMathErrorsWithoutHistoryAndAllowsANewCalculation(String expression, String message) {
     String output = runCalculator(expression + "\n4\n2\nsqrt(25)\n3\n");
@@ -494,7 +527,8 @@ class CalculatorTest {
   @ParameterizedTest
   @ValueSource(strings = {"NaN", "Infinity", "-Infinity", "cos(NaN)", "tan(Infinity)",
       "root(27,NaN)", "root(Infinity,3)", "root(27,-Infinity)", "sin(1e309)",
-      "percent(NaN,500)", "percent(10,Infinity)", "percent(-Infinity,500)", "percent(10,1e309)"})
+      "percent(NaN,500)", "percent(10,Infinity)", "percent(-Infinity,500)", "percent(10,1e309)",
+      "mod(NaN,5)", "mod(17,Infinity)"})
   void rejectsNonFiniteInputTokensAndFunctionOperands(String expression) {
     String output = runCalculator(expression + "\n4\n3\n");
 
@@ -698,7 +732,8 @@ class CalculatorTest {
   @ParameterizedTest
   @ValueSource(strings = {"abc", "2+", "()", "(1+2", "1+2)", "1 2", "sqrt()",
       "sqrt(1,2)", "power(2)", "power(2,,3)", "Sin(90)", "2pi", "2^3",
-      "percent()", "percent(10,)", "percent(10,500", "10 Prozent von 500", "5% von 1000", "10%"})
+      "percent()", "percent(10,)", "percent(10,500", "10 Prozent von 500", "5% von 1000", "10%",
+      "mod()", "mod(17,)", "mod(17,5,2)", "17%5", "Mod(17,5)"})
   void reportsSyntaxErrorsAndAllowsANewExpression(String expression) {
     String output = runCalculator(expression + "\n2\n2+2\n3\n");
 
@@ -796,6 +831,10 @@ class CalculatorTest {
     percentLength += " ".repeat(256 - percentLength.length());
     String percentOperations = "+".repeat(47) + "percent(5+5,500+100)";
     String percentDepth = "percent(100,".repeat(16) + "1" + ")".repeat(16);
+    String modLength = "mod(17,5)";
+    modLength += " ".repeat(256 - modLength.length());
+    String modOperations = "+".repeat(47) + "mod(10+7,2+3)";
+    String modDepth = "mod(".repeat(16) + "17" + ",5)".repeat(16);
     return Stream.of(
         Arguments.of("256/257 Zeichen einschließlich Leerzeichen", length, length + " ", 1, "höchstens 256 Zeichen"),
         Arguments.of("50/51 binäre Operationen", binary, binary + "+1", 51, "höchstens 50 Operationen"),
@@ -816,6 +855,11 @@ class CalculatorTest {
         Arguments.of("50/51 Operationen mit percent und Argumentausdrücken", percentOperations,
             percentOperations + "+1", 60, "höchstens 50 Operationen"),
         Arguments.of("16/17 Klammerebenen mit percent", percentDepth, "(" + percentDepth + ")", 1,
+            "höchstens 16 Klammerebenen"),
+        Arguments.of("256/257 Zeichen mit mod", modLength, modLength + " ", 2, "höchstens 256 Zeichen"),
+        Arguments.of("50/51 Operationen mit mod und Argumentausdrücken", modOperations,
+            modOperations + "+1", 2, "höchstens 50 Operationen"),
+        Arguments.of("16/17 Klammerebenen mit mod", modDepth, "mod(" + modDepth + ",5)", 2,
             "höchstens 16 Klammerebenen")
     );
   }

@@ -298,6 +298,72 @@ class CalculatorEngineTest {
   }
 
   @ParameterizedTest
+  @CsvSource({
+      "17, 5, 2", "-17, 5, 3", "5.5, 2, 1.5", "-5.5, 2, 0.5",
+      "3, 5, 3", "-3, 5, 2", "0.25, 1, 0.25", "-0.25, 1, 0.75"
+  })
+  void calculatesMathematicalModuloWithAPositiveDivisor(double number, double divisor, double expected) {
+    assertEquals(expected, engine.mod(number, divisor));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"20, 5", "-20, 5", "0.0, 5", "-0.0, 5"})
+  void returnsPositiveZeroForExactModuloMultiplesAndEitherZeroSign(double number, double divisor) {
+    assertEquals(Double.doubleToLongBits(0.0), Double.doubleToLongBits(engine.mod(number, divisor)));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {0.0, -0.0, -1, -Double.MIN_VALUE, -Double.MAX_VALUE})
+  void rejectsNonPositiveModuloDivisors(double divisor) {
+    for (double number : new double[] {17, 0}) {
+      ArithmeticException exception = assertThrows(ArithmeticException.class, () -> engine.mod(number, divisor));
+
+      assertEquals("Der Divisor für Modulo muss größer als null sein.", exception.getMessage());
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0.3, 0.1, 0.09999999999999998", "-0.3, 0.1, 2.7755575615628914e-17"})
+  void calculatesModuloFromTheExactBinaryOperands(double number, double divisor, double expected) {
+    // 0.3 ist kein exaktes Vielfaches des als double übergebenen Werts 0.1.
+    assertEquals(expected, engine.mod(number, divisor));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {1, -1})
+  void avoidsOverflowAndLostModuloRemaindersWithExtremeQuotients(double sign) {
+    double number = sign * Double.MAX_VALUE;
+
+    assertEquals(sign > 0 ? 2.0 : 1.0, engine.mod(number, 3));
+    assertEquals(sign > 0 ? 2 * Double.MIN_VALUE : Double.MIN_VALUE,
+        engine.mod(number, 3 * Double.MIN_VALUE));
+    assertEquals(Double.doubleToLongBits(0.0), Double.doubleToLongBits(engine.mod(number, 0.5)));
+    assertEquals(Double.doubleToLongBits(0.0), Double.doubleToLongBits(engine.mod(number, Double.MIN_VALUE)));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {Double.MIN_VALUE, Double.MIN_NORMAL})
+  void retainsModuloRemaindersForVerySmallOperands(double unit) {
+    assertEquals(2 * unit, engine.mod(5 * unit, 3 * unit));
+    assertEquals(unit, engine.mod(-5 * unit, 3 * unit));
+    assertEquals(unit, engine.mod(unit, Double.MAX_VALUE));
+  }
+
+  @ParameterizedTest
+  @ValueSource(doubles = {1, 3, Double.MAX_VALUE, 0x1.0p-1020})
+  void allowsAnExactModuloRemainderToRoundUpToTheDivisor(double divisor) {
+    // Exakt gilt divisor - Double.MIN_VALUE < divisor; als double rundet der Rest hier auf divisor.
+    assertEquals(divisor, engine.mod(-Double.MIN_VALUE, divisor));
+  }
+
+  @Test
+  void roundsModuloRemaindersToTheNearestDoubleWithTiesToEven() {
+    assertEquals(Math.nextDown(1.0), engine.mod(-0x1.0p-53, 1));
+    assertEquals(1.0, engine.mod(-0x1.0p-54, 1));
+    assertEquals(Math.nextDown(Math.nextDown(1.0)), engine.mod(-3 * 0x1.0p-54, 1));
+  }
+
+  @ParameterizedTest
   @ValueSource(doubles = {0.0, -0.0})
   void rejectsDivisionByZero(double divisor) {
     assertThrows(ArithmeticException.class, () -> engine.divide(5, divisor));
@@ -351,5 +417,9 @@ class CalculatorEngineTest {
     assertThrows(IllegalArgumentException.class, () -> engine.percent(1, operand));
     assertThrows(IllegalArgumentException.class, () -> engine.percent(operand, 0));
     assertThrows(IllegalArgumentException.class, () -> engine.percent(0, operand));
+    assertThrows(IllegalArgumentException.class, () -> engine.mod(operand, 5));
+    assertThrows(IllegalArgumentException.class, () -> engine.mod(17, operand));
+    assertThrows(IllegalArgumentException.class, () -> engine.mod(operand, 0));
+    assertThrows(IllegalArgumentException.class, () -> engine.mod(0, operand));
   }
 }

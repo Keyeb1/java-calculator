@@ -153,6 +153,29 @@ public class CalculatorEngine {
     return checkedResult(result);
   }
 
+  /**
+   * Berechnet den Modulo für einen positiven Divisor aus den exakten double-Werten.
+   * Der exakte Rest liegt in [0, divisor); erst die abschließende Umwandlung zu
+   * double rundet zum nächsten darstellbaren Wert (bei Gleichstand zur geraden
+   * Mantisse). Dabei kann der Rest auf den Divisor aufrunden; dieser Wert bleibt
+   * erhalten. Die strikte obere Grenze gilt daher nicht für das double-Ergebnis.
+   * Exakte Nullergebnisse werden als +0.0 zurückgegeben.
+   */
+  public double mod(double number, double divisor) {
+    validateOperands(number, divisor);
+    if (divisor <= 0) {
+      throw new ArithmeticException("Der Divisor für Modulo muss größer als null sein.");
+    }
+
+    BigDecimal exactDivisor = new BigDecimal(divisor);
+    BigDecimal remainder = new BigDecimal(number).remainder(exactDivisor);
+    if (remainder.signum() < 0) {
+      remainder = remainder.add(exactDivisor);
+    }
+    double result = remainder.doubleValue();
+    return checkedResult(result == 0.0 ? 0.0 : result);
+  }
+
   private static void validateOperands(double... operands) {
     for (double operand : operands) {
       if (!Double.isFinite(operand)) {
